@@ -1,0 +1,7 @@
+p, superadmin, *, *, allow
+p, salesman, *, *, allow
+p, data_entry, *, *, allow
+p, partner, *, *, allow
+p, customer, configuration, read, allow
+p, customer, configuration, create, allow
+p, customer, quote, read, allow
