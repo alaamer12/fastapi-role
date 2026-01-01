@@ -66,9 +66,9 @@ Transform this codebase into a package that:
 
 ---
 
-## 2. Phase 1: Analysis & Preparation
+## 2. [ ] Phase 1: Analysis & Preparation
 
-### Step 1.1: Complete Code Audit
+### [ ] Step 1.1: Complete Code Audit
 
 **Objective:** Create a comprehensive inventory of all files, dependencies, and business-specific coupling points.
 
@@ -94,7 +94,7 @@ Transform this codebase into a package that:
    - Default customer type: `residential`
    - File paths: `config/rbac_model.conf`, `config/rbac_policy.csv`
 
-### Step 1.2: Requirements Gathering
+### [ ] Step 1.2: Requirements Gathering
 
 **Objective:** Define what the generalized package must support.
 
@@ -113,7 +113,7 @@ Transform this codebase into a package that:
 - NFR-4: Python 3.9+ compatibility
 - NFR-5: Minimal dependency footprint
 
-### Step 1.3: Create Refactoring Branch
+### [ ] Step 1.3: Create Refactoring Branch
 
 **Objective:** Preserve original functionality while enabling transformation.
 
@@ -126,9 +126,9 @@ Transform this codebase into a package that:
 
 ---
 
-## 3. Phase 2: Core Generalization
+## 3. [ ] Phase 2: Core Generalization
 
-### Step 2.1: Create Role Factory System
+### [ ] Step 2.1: Create Role Factory System
 
 **Current Implementation Problem:**
 The `Role` enum in `rbac.py:56-68` defines five specific business roles. Users cannot add, remove, or modify roles without changing the library source code.
@@ -168,7 +168,7 @@ Create a `RoleRegistry` class that:
 3. Enables runtime introspection of available roles
 4. Supports role aliases for backward compatibility
 
-### Step 2.2: Abstract User Model
+### [ ] Step 2.2: Abstract User Model
 
 **Current Implementation Problem:**
 `rbac.py:40` directly imports `from app.models.user import User`, requiring users to have a specific User model in a specific location with specific attributes.
@@ -199,7 +199,7 @@ If `has_role` is not implemented, the library provides a default implementation 
 2. Handles superadmin bypass if configured
 3. Supports role composition checking
 
-### Step 2.3: Abstract Resource Ownership
+### [ ] Step 2.3: Abstract Resource Ownership
 
 **Current Implementation Problem:**
 `rbac_service.py:160-202` contains hardcoded resource type handling for `configuration`, `quote`, `order`, and `customer`. Each resource type has specific database queries and relationships.
@@ -231,7 +231,7 @@ Create `OwnershipRegistry`:
 2. `check(user, resource_type: str, resource_id: Any) -> bool`
 3. Default provider for "superadmin passes all" logic
 
-### Step 2.4: Decouple Query Filters
+### [ ] Step 2.4: Decouple Query Filters
 
 **Current Implementation Problem:**
 `RBACQueryFilter` in `rbac.py:389-493` contains methods like `filter_configurations`, `filter_quotes`, `filter_orders` that directly import business models.
@@ -262,9 +262,9 @@ The user implements their own filter methods using the primitives:
 
 ---
 
-## 4. Phase 3: Configuration Architecture
+## 4. [ ] Phase 3: Configuration Architecture
 
-### Step 3.1: Create Configuration System
+### [ ] Step 3.1: Create Configuration System
 
 **Current Implementation Problem:**
 Casbin configuration paths are hardcoded in `rbac.py:244` and `rbac_service.py:68`. Users cannot easily customize paths or use alternative storage.
@@ -306,7 +306,7 @@ Different deployment scenarios need different configuration mechanisms:
 - Operations teams want environment variables in containers
 - Package users want sensible defaults that "just work"
 
-### Step 3.2: Design Configuration Classes
+### [ ] Step 3.2: Design Configuration Classes
 
 **Implementation Strategy:**
 
@@ -323,7 +323,7 @@ Create configuration loading priority:
 3. File configuration overrides defaults
 4. Defaults apply when nothing else specified
 
-### Step 3.3: Default Configuration Templates
+### [ ] Step 3.3: Default Configuration Templates
 
 **Deliverables:**
 
@@ -336,9 +336,9 @@ Create configuration loading priority:
 
 ---
 
-## 5. Phase 4: Extension Points & Plugin Architecture
+## 5. [ ] Phase 4: Extension Points & Plugin Architecture
 
-### Step 4.1: Define Extension Interfaces
+### [ ] Step 4.1: Define Extension Interfaces
 
 **Objective:** Create clear extension points for advanced customization.
 
@@ -369,7 +369,7 @@ Create configuration loading priority:
    - Default: Superadmin always passes
    - Custom: Database lookups, external service calls
 
-### Step 4.2: Create Provider Registration System
+### [ ] Step 4.2: Create Provider Registration System
 
 **Implementation Strategy:**
 
@@ -385,7 +385,7 @@ Provider lifecycle:
 3. Providers may implement async initialization for database connections
 4. Providers should be reusable across requests
 
-### Step 4.3: Implement Default Providers
+### [ ] Step 4.3: Implement Default Providers
 
 **Deliverables:**
 
@@ -397,9 +397,9 @@ Provider lifecycle:
 
 ---
 
-## 6. Phase 5: Testing Strategy Transformation
+## 6. [ ] Phase 5: Testing Strategy Transformation
 
-### Step 5.1: Analyze Current Test Suite
+### [ ] Step 5.1: Analyze Current Test Suite
 
 **Current Test Files:**
 - `test_rbac_core.py` (580 lines): Core RBAC class tests
@@ -413,7 +413,7 @@ Provider lifecycle:
 
 **Issue:** Tests depend on `app.core.rbac`, `app.models.user`, `app.models.customer`, etc.
 
-### Step 5.2: Create Test Infrastructure
+### [ ] Step 5.2: Create Test Infrastructure
 
 **Approach:**
 
@@ -431,7 +431,7 @@ Provider lifecycle:
 4. **Create Test Roles:**
    Define a standard set of test roles that all tests can use.
 
-### Step 5.3: Transform Existing Tests
+### [ ] Step 5.3: Transform Existing Tests
 
 **Strategy:**
 
@@ -450,7 +450,7 @@ Provider lifecycle:
 5. **Performance Tests:** Ensure caching and performance meet requirements
 6. **Example Tests:** Verify documentation examples work correctly
 
-### Step 5.4: Add New Test Categories
+### [ ] Step 5.4: Add New Test Categories
 
 **New Tests Required:**
 
@@ -477,9 +477,9 @@ Provider lifecycle:
 
 ---
 
-## 7. Phase 6: Documentation & Examples
+## 7. [ ] Phase 6: Documentation & Examples
 
-### Step 6.1: API Documentation
+### [ ] Step 6.1: API Documentation
 
 **Structure:**
 
@@ -505,7 +505,7 @@ Provider lifecycle:
    - Extension points diagram
    - Request flow through authorization
 
-### Step 6.2: Example Applications
+### [ ] Step 6.2: Example Applications
 
 **Deliverables:**
 
@@ -524,7 +524,7 @@ Provider lifecycle:
 5. **API Gateway Example:**
    Example showing RBAC as a middleware/gateway layer.
 
-### Step 6.3: Migration Guide
+### [ ] Step 6.3: Migration Guide
 
 **Content:**
 
@@ -542,9 +542,9 @@ Provider lifecycle:
 
 ---
 
-## 8. Phase 7: Package Structure & Deployment
+## 8. [ ] Phase 7: Package Structure & Deployment
 
-### Step 7.1: Final Package Structure
+### [ ] Step 7.1: Final Package Structure
 
 ```
 fastapi-rbac/
@@ -622,7 +622,7 @@ fastapi-rbac/
 └── CONTRIBUTING.md
 ```
 
-### Step 7.2: Package Metadata (pyproject.toml)
+### [ ] Step 7.2: Package Metadata (pyproject.toml)
 
 **Key Sections:**
 
@@ -643,7 +643,7 @@ fastapi-rbac/
    - Use modern build backends: `hatchling`, `flit-core`, or `setuptools`
    - Prefer `hatchling` for better project management
 
-### Step 7.3: Version Strategy
+### [ ] Step 7.3: Version Strategy
 
 **Approach: Semantic Versioning (SemVer)**
 
@@ -659,9 +659,9 @@ fastapi-rbac/
 
 ---
 
-## 9. Phase 8: CI/CD & Publishing
+## 9. [ ] Phase 8: CI/CD & Publishing
 
-### Step 8.1: GitHub Actions Workflows
+### [ ] Step 8.1: GitHub Actions Workflows
 
 **Required Workflows:**
 
@@ -686,7 +686,7 @@ fastapi-rbac/
    - Build documentation with MkDocs/Sphinx
    - Deploy to GitHub Pages or ReadTheDocs
 
-### Step 8.2: PyPI Publishing Process
+### [ ] Step 8.2: PyPI Publishing Process
 
 **Steps:**
 
@@ -705,7 +705,7 @@ fastapi-rbac/
    - Verify with `twine check dist/*`
    - Upload with `twine upload dist/*` or GitHub Action
 
-### Step 8.3: Release Checklist
+### [ ] Step 8.3: Release Checklist
 
 **Pre-Release:**
 1. All tests passing on all Python versions
@@ -728,9 +728,9 @@ fastapi-rbac/
 
 ---
 
-## 10. Phase 9: Post-Release & Maintenance
+## 10. [ ] Phase 9: Post-Release & Maintenance
 
-### Step 10.1: Community Management
+### [ ] Step 10.1: Community Management
 
 **Channels:**
 
@@ -744,7 +744,7 @@ fastapi-rbac/
 - Feature request template
 - Security vulnerability reporting process
 
-### Step 10.2: Maintenance Schedule
+### [ ] Step 10.2: Maintenance Schedule
 
 **Regular Tasks:**
 
@@ -753,7 +753,7 @@ fastapi-rbac/
 3. **Quarterly:** Minor version releases with new features
 4. **Annually:** Major version consideration, deprecation review
 
-### Step 10.3: Deprecation Policy
+### [ ] Step 10.3: Deprecation Policy
 
 **Process:**
 
