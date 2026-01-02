@@ -100,6 +100,7 @@ class TestRBACProperties:
                     expected = role_value == Role.SUPERADMIN.value
                     assert user.has_role(other_role.value) == expected
 
+    # noinspection PyTypeChecker
     @pytest.mark.asyncio
     @given(
         user_role=st.sampled_from([role.value for role in Role]),
@@ -172,7 +173,7 @@ class TestRBACProperties:
     @pytest.mark.asyncio
     @given(
         roles=st.lists(
-            st.sampled_from([role for role in Role]), min_size=1, max_size=3, unique=True
+            st.sampled_from(list(Role)), min_size=1, max_size=3, unique=True
         )
     )
     @settings(deadline=None)

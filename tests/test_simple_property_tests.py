@@ -17,6 +17,7 @@ from tests.conftest import TestUser as User
 @composite
 def simple_user_data(draw):
     """Generate simple user data for testing."""
+    # noinspection PyTypeChecker
     return {
         "id": draw(st.integers(min_value=1, max_value=1000)),
         "email": draw(st.emails()),
@@ -166,7 +167,7 @@ class TestSimpleProperties:
             assert customer["id"] == customers_by_email[email]["id"]
 
         # Assert - Only one customer should exist per unique email
-        unique_emails = set(user_data["email"] for user_data in users)
+        unique_emails = {user_data["email"] for user_data in users}
         assert len(customers_by_email) == len(unique_emails)
 
     @given(

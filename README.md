@@ -1,4 +1,4 @@
-# FastAPI-RBAC
+# FastAPI-Role
 
 A powerful and flexible Role-Based Access Control (RBAC) library for FastAPI applications, powered by Casbin.
 
@@ -20,7 +20,7 @@ pip install fastapi-rbac
 ## Quick Start
 
 ```python
-from fastapi_role import create_roles, CasbinConfig, RBACService
+from fastapi_role import create_roles, CasbinConfig
 
 # 1. Define roles
 Role = create_roles(["ADMIN", "USER", "SUPERADMIN"])

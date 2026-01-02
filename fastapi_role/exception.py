@@ -3,6 +3,12 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+class DatabaseException(Exception):
+    """Raised when database operations fail."""
+
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+        self.details = details or {}
+        super().__init__(message)
 
 class PolicyEvaluationException(Exception):
     """Raised when Casbin policy evaluation fails due to system errors.

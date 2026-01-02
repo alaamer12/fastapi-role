@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi_role.base import BaseService
-from fastapi_role.protocols import UserProtocol
 from fastapi_role.exception import (
     PolicyEvaluationException,
 )
+from fastapi_role.protocols import UserProtocol
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -73,7 +73,7 @@ class RBACService(BaseService):
         rbac_service = self
 
     async def check_permission(
-        self, user: UserProtocol, resource: str, action: str, context: Optional[dict] = None
+            self, user: UserProtocol, resource: str, action: str, context: Optional[dict] = None
     ) -> bool:
         """Check if user has permission for action on resource."""
         if not self.enforcer:
@@ -117,7 +117,7 @@ class RBACService(BaseService):
             return False
 
     async def check_resource_ownership(
-        self, user: UserProtocol, resource_type: str, resource_id: int
+            self, user: UserProtocol, resource_type: str, resource_id: int
     ) -> bool:
         """Check if user owns or has access to the resource."""
         # Note: We need to know who is SUPERADMIN.
@@ -193,7 +193,7 @@ class RBACService(BaseService):
         if hasattr(privilege, "permission") and privilege.permission:
             perm = privilege.permission
             if not await self.check_permission(user, perm.resource, perm.action, perm.context):
-                 return False
+                return False
 
         # Check ownership if present (only if resource_id is passed? performance test passes object)
         # Performance test creates privilege with permission and roles.

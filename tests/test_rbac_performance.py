@@ -18,10 +18,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from fastapi_role import Permission, Privilege
-from tests.conftest import TestCustomer as Customer
-from tests.conftest import TestUser as User
-from tests.conftest import TestRole as Role
 from fastapi_role import RBACService
+from tests.conftest import TestRole as Role
+from tests.conftest import TestUser as User
 
 
 class TestCasbinPerformance:

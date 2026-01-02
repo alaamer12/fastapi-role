@@ -39,6 +39,7 @@ dependencies = [
     "sqlalchemy",
     "pydantic",
     "pydantic-settings",
+    "uvicorn",
 ]
 
 [dependency-groups]
@@ -86,6 +87,10 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "W191",  # indentation contains tabs
     "UP045", # Old types pattern
+    "UP007",
+    "UP035",
+    "B010",
+    "UP006",
 ]
 
 [tool.ruff.lint.per-file-ignores]

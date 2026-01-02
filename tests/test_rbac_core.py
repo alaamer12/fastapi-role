@@ -7,7 +7,6 @@ Privilege, and the require decorator functionality.
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from tests.conftest import TestUser as User
 from fastapi import HTTPException
 
 from fastapi_role.rbac import (
@@ -24,6 +23,7 @@ from fastapi_role.rbac import (
     require,
 )
 from tests.conftest import TestRole as Role
+from tests.conftest import TestUser as User
 
 
 class TestRole:
@@ -62,6 +62,7 @@ class TestRole:
     def test_role_composition_chaining(self):
         """Test chaining multiple role compositions."""
         composition = Role.SALESMAN | Role.PARTNER | Role.DATA_ENTRY
+        # noinspection PyTestUnpassedFixture
         assert len(composition.roles) == 3
         assert Role.SALESMAN in composition
         assert Role.PARTNER in composition
@@ -126,6 +127,7 @@ class TestPrivilege:
         """Test Privilege with role composition."""
         perm = Permission("configuration", "read")
         roles = Role.SALESMAN | Role.PARTNER
+        # noinspection PyTestUnpassedFixture
         privilege = Privilege(roles, perm)
         assert Role.SALESMAN in privilege.roles
         assert Role.PARTNER in privilege.roles
@@ -552,6 +554,7 @@ class TestRequireDecorator:
             result = await test_function(user)
             assert result == "success"
 
+    # noinspection PyCompatibility
     @pytest.mark.asyncio
     async def test_require_decorator_and_logic(self, user):
         """Test require decorator with AND logic within single decorator."""

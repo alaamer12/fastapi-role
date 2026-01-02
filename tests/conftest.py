@@ -1,3 +1,4 @@
+from enum import Enum, auto
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,8 +13,9 @@ TestRole = create_roles(["SUPERADMIN", "SALESMAN", "DATA_ENTRY", "PARTNER", "CUS
 
 class TestUser:
     """Mock User implementing UserProtocol."""
-    
-    def __init__(self, id=1, email="test@example.com", role="customer", full_name="Test User", username="testuser", **kwargs):
+
+    def __init__(self, id=1, email="test@example.com", role="customer", full_name="Test User", username="testuser",
+                 **kwargs):
         self.id = id
         self.email = email
         self.role = role
@@ -35,7 +37,7 @@ class TestUser:
 
 class TestCustomer:
     """Mock Customer for testing."""
-    
+
     def __init__(self, id=1, email="test@example.com", contact_person="Test User", **kwargs):
         self.id = id
         self.email = email
@@ -48,9 +50,18 @@ class TestCustomer:
             setattr(self, k, v)
 
 
+class _TypeRoles(Enum):
+    SUPERADMIN = auto()
+    SALESMAN = auto()
+    DATA_ENTRY = auto()
+    PARTNER = auto()
+    CUSTOMER = auto()
+
+
 @pytest.fixture(scope="session")
-def roles():
+def roles() -> _TypeRoles:
     """Return the TestRole enum class."""
+    # noinspection PyTypeChecker
     return TestRole
 
 

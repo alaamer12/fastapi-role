@@ -114,10 +114,10 @@ class Privilege:
     """
 
     def __init__(
-        self,
-        roles: Union[Enum, RoleComposition, List[Enum]],
-        permission: Permission,
-        resource: Optional[ResourceOwnership] = None,
+            self,
+            roles: Union[Enum, RoleComposition, List[Enum]],
+            permission: Permission,
+            resource: Optional[ResourceOwnership] = None,
     ):
         """Initializes the privilege.
 
@@ -182,7 +182,7 @@ def require(*requirements) -> Callable:
             for requirement_group in all_requirements:
                 try:
                     if await _evaluate_requirement_group(
-                        user, requirement_group, original_func, args, kwargs
+                            user, requirement_group, original_func, args, kwargs
                     ):
                         # At least one requirement group satisfied - allow access
                         logger.debug(f"Access granted to {user.email} for {original_func.__name__}")
@@ -200,15 +200,15 @@ def require(*requirements) -> Callable:
             )
 
         # Store requirements and original function for potential additional decorators
-        wrapper._rbac_requirements = all_requirements
-        wrapper._rbac_original_func = original_func
+        wrapper._rbac_requirements = all_requirements  # type: ignore
+        wrapper._rbac_original_func = original_func  # type: ignore
         return wrapper
 
     return decorator
 
 
 async def _evaluate_requirement_group(
-    user: UserProtocol, requirements: tuple, func: Callable, args: tuple, kwargs: dict
+        user: UserProtocol, requirements: tuple, func: Callable, args: tuple, kwargs: dict
 ) -> bool:
     """Evaluate a single requirement group with AND logic."""
     has_role_requirement = False
@@ -269,19 +269,19 @@ async def _evaluate_requirement_group(
 
 
 async def _check_role_requirement(
-    user: UserProtocol, role_req: Union[Enum, RoleComposition, List[Enum]]
+        user: UserProtocol, role_req: Union[Enum, RoleComposition, List[Enum]]
 ) -> bool:
     """Check role requirement with OR logic for multiple roles."""
     # Use has_role if available (protocol method)
     if hasattr(user, "has_role"):
         # If the user model implements has_role, delegate to it
         # We need to handle the different types of role_req
-         if isinstance(role_req, Enum):
+        if isinstance(role_req, Enum):
             return user.has_role(role_req.value)
-         elif isinstance(role_req, RoleComposition):
-             return any(user.has_role(role.value) for role in role_req.roles)
-         elif isinstance(role_req, list):
-             return any(user.has_role(role.value) for role in role_req)
+        elif isinstance(role_req, RoleComposition):
+            return any(user.has_role(role.value) for role in role_req.roles)
+        elif isinstance(role_req, list):
+            return any(user.has_role(role.value) for role in role_req)
 
     # Fallback to direct attribute access check
     current_role = user.role  # String value
@@ -306,7 +306,7 @@ async def _check_permission_requirement(service, user: UserProtocol, permission:
 
 
 async def _check_ownership_requirement(
-    service, user: UserProtocol, ownership: ResourceOwnership, func: Callable, args: tuple, kwargs: dict
+        service, user: UserProtocol, ownership: ResourceOwnership, func: Callable, args: tuple, kwargs: dict
 ) -> bool:
     """Check resource ownership requirement."""
     # Extract resource ID from function parameters
@@ -319,7 +319,7 @@ async def _check_ownership_requirement(
 
 
 async def _check_privilege_requirement(
-    service, user: UserProtocol, privilege: Privilege, func: Callable, args: tuple, kwargs: dict
+        service, user: UserProtocol, privilege: Privilege, func: Callable, args: tuple, kwargs: dict
 ) -> bool:
     """Check privilege requirement."""
     # Check role requirement
@@ -344,7 +344,7 @@ async def _check_privilege_requirement(
 
 
 def _extract_resource_id(
-    param_name: str, func: Callable, args: tuple, kwargs: dict
+        param_name: str, func: Callable, args: tuple, kwargs: dict
 ) -> Optional[int]:
     """Extract resource ID from function parameters."""
     # Check keyword arguments first
@@ -388,29 +388,29 @@ def _is_user_like(obj: Any) -> bool:
     """Check if object looks like a User model with populated attributes."""
     if obj is None:
         return False
-    
+
     try:
         # Check existence and get values
         obj_id = getattr(obj, "id", None)
         obj_email = getattr(obj, "email", None)
         obj_role = getattr(obj, "role", None)
-        
+
         # All required attributes must be present and not None
         if obj_id is None or obj_email is None or obj_role is None:
             return False
-        
+
         # Attributes should not be callable
         if any(callable(attr) for attr in [obj_id, obj_email, obj_role]):
             return False
-        
+
         # Type checks
         if not isinstance(obj_email, (str, bytes)):
             return False
-        
+
         if not isinstance(obj_role, (str, bytes)):
             return False
-        
+
         return True
-        
+
     except (AttributeError, TypeError):
         return False

@@ -9,12 +9,13 @@ from enum import Enum
 
 from fastapi_role.core.composition import RoleComposition
 from fastapi_role.core.config import CasbinConfig
-from fastapi_role.core.roles import create_roles, RoleRegistry
+from fastapi_role.core.roles import RoleRegistry, create_roles
 
 
 class TestRoleFactory:
     """Tests for the create_roles factory and RoleRegistry."""
 
+    # noinspection PyUnresolvedReferences
     def test_create_roles_generates_enum(self):
         """Verifies that create_roles returns a valid Enum with correct values."""
         Role = create_roles(["ADMIN", "USER"])
@@ -29,6 +30,7 @@ class TestRoleFactory:
         assert RoleRegistry.is_valid("viewer")
         assert not RoleRegistry.is_valid("nonexistent")
 
+    # noinspection PyUnresolvedReferences
     def test_bitwise_operations(self):
         """Tests bitwise OR operations for Role Enums and compositions."""
         Role = create_roles(["A", "B"])
@@ -38,6 +40,7 @@ class TestRoleFactory:
         assert Role.B in comp
 
 
+# noinspection PyUnresolvedReferences
 class TestCasbinConfig:
     """Tests for the CasbinConfig configuration class."""
 

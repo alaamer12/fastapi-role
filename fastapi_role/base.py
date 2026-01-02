@@ -45,7 +45,7 @@ class BaseService:
             await self.db.commit()
         except Exception as e:
             await self.db.rollback()
-            from app.core.exceptions import DatabaseException
+            from fastapi_role.exceptions import DatabaseException
 
             # Log the actual error for debugging
             print(f"[ERROR] Commit failed: {type(e).__name__}: {str(e)}")
@@ -56,7 +56,7 @@ class BaseService:
             raise DatabaseException(
                 message="Failed to commit transaction",
                 details={"error": str(e), "type": type(e).__name__},
-            )
+            ) from e
 
     async def rollback(self) -> None:
         """Rollback current transaction."""

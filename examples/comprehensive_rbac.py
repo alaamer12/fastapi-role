@@ -10,8 +10,8 @@ This example covers:
 """
 
 import sys
-from typing import Optional
-from fastapi import FastAPI, Depends, Request
+
+from fastapi import Depends, FastAPI, Request
 from pydantic import BaseModel
 
 # In a real project, you'd install the package and import from it:
@@ -20,12 +20,11 @@ from pydantic import BaseModel
 # For this demo, we assume the library is in the python path
 try:
     from fastapi_role import (
-        create_roles,
         CasbinConfig,
-        RBACService,
-        require,
         Permission,
-        RoleComposition,
+        RBACService,
+        create_roles,
+        require,
     )
 except ImportError:
     print("Error: fastapi-role library not found in path.")

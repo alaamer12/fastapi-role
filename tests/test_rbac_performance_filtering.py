@@ -4,15 +4,14 @@ This module restores performance tests for filtering and bulk operations,
 adapted for the generic library architecture.
 """
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from fastapi_role import RBACService
-from tests.conftest import TestUser as User
 from tests.conftest import TestRole as Role
+from tests.conftest import TestUser as User
 
 
 class TestGenericFilteringPerformance:
