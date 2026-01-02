@@ -10,9 +10,9 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import composite
 
-from app.core.rbac import Role
-from app.models.customer import Customer
-from app.models.user import User
+from fastapi_role import Role
+from tests.conftest import TestCustomer as Customer
+from tests.conftest import TestUser as User
 
 
 @composite

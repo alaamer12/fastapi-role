@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.core.rbac import Permission, Privilege, ResourceOwnership, require
+from fastapi_role import Permission, Privilege, ResourceOwnership, require
 from tests.conftest import TestRole as Role
-from app.models.user import User
+from tests.conftest import TestUser as User
 
 
 class TestMultipleRequireDecorators:

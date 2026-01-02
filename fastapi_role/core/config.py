@@ -6,11 +6,13 @@ configuration files like .conf or .csv.
 """
 
 from __future__ import annotations
-import casbin
-import casbin.model
-from typing import List, Optional, Union
-from enum import Enum
+
 from dataclasses import dataclass
+from enum import Enum
+from typing import List, Optional, Union
+
+import casbin  # type: ignore
+import casbin.model  # type: ignore
 
 
 @dataclass

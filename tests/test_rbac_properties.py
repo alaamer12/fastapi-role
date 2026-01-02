@@ -17,8 +17,8 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from app.core.rbac import Permission, Privilege, ResourceOwnership, Role, require
-from app.models.user import User
+from fastapi_role import Permission, Privilege, ResourceOwnership, Role, require
+from tests.conftest import TestUser as User
 
 
 class TestRBACProperties:

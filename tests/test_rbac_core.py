@@ -7,13 +7,13 @@ Privilege, and the require decorator functionality.
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from tests.conftest import TestUser as User
 from fastapi import HTTPException
 
-from app.core.rbac import (
+from fastapi_role.rbac import (
     Permission,
     Privilege,
     ResourceOwnership,
-
     RoleComposition,
     _check_ownership_requirement,
     _check_permission_requirement,
@@ -24,7 +24,6 @@ from app.core.rbac import (
     require,
 )
 from tests.conftest import TestRole as Role
-from app.models.user import User
 
 
 class TestRole:

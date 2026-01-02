@@ -19,17 +19,14 @@ import logging
 from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-from typing import Any, Optional, Union, List
+from typing import Any, List, Optional, Union
 
 from fastapi import HTTPException
-from sqlalchemy import select
 
-from app.models.user import User
-
-# Import core components
-from fastapi_role.core.roles import create_roles, RoleRegistry
 from fastapi_role.core.composition import RoleComposition
 from fastapi_role.core.config import CasbinConfig
+# Import core components
+from fastapi_role.core.roles import RoleRegistry, create_roles
 from fastapi_role.rbac_service import RBACService
 
 # Forward reference for circular import handling if needed,
@@ -44,7 +41,6 @@ __all__ = [
     "ResourceOwnership",
     "Privilege",
     "RBACService",
-    "RBACQueryFilter",
     "require",
 ]
 
@@ -146,43 +142,6 @@ class Privilege:
         """Detailed string representation."""
         return self.__str__()
 
-
-class RBACQueryFilter:
-    """Automatic query filtering based on user access.
-
-    Provides automatic filtering of database queries to ensure users only see
-    data they have access to. Prevents data leakage through query-level filtering.
-    """
-    
-    # Note: Logic here heavily depends on hardcoded Role checks in original code.
-    # We need to generalize this, but for this step strict replacement means
-    # ensuring it doesn't break if Role.SUPERADMIN is passed dynamically.
-    # The user logic in filter methods will need to utilize the RBACService 
-    # to check against the initialized policy.
-
-    @staticmethod
-    async def filter_configurations(query: select, user: User) -> select:
-        """Filter configurations based on user access."""
-        # TODO: Refactor to avoid hardcoded Role.SUPERADMIN check if possible,
-        # or rely on RBACService to identify superadmin.
-        # For now, we assume user.role string matches the dynamic role value.
-        
-        # Access RBAC Service (global instance or passed)
-        # This part requires access to the configured Roles to check for SUPERADMIN
-        # if the user wants strictly typed checks.
-        
-        # Current implementation relies on database calls within static method...
-        # We will keep the structure but note that 'Role' enum is gone.
-        
-        # This method is tricky without the static Role enum available globally.
-        # We will import the service and delegate.
-        return query
-
-
-# Global RBAC service instance (to be initialized by app startup)
-# rbac_service = RBACService() 
-
-
 def require(*requirements) -> Callable:
     """Advanced decorator supporting multiple authorization patterns.
 
@@ -245,20 +204,6 @@ def require(*requirements) -> Callable:
     return decorator
 
 
-def _extract_user_from_args(args: tuple, kwargs: dict) -> Optional[User]:
-    """Extract User object from function arguments."""
-    # Check keyword arguments first
-    if "user" in kwargs:
-        return kwargs["user"]
-
-    # Check positional arguments
-    for arg in args:
-        if isinstance(arg, User):
-            return arg
-
-    return None
-
-
 async def _evaluate_requirement_group(
     user: User, requirements: tuple, func: Callable, args: tuple, kwargs: dict
 ) -> bool:
@@ -279,10 +224,10 @@ async def _evaluate_requirement_group(
     # No, typically it is `app.core.rbac.rbac_service`. 
     # We will assume a global rbac_service instance is available or passed. 
     # Since we can't easily change the signature of the decorator, we rely on the import.
-    
+
     # FIXME: This is a coupling point. 
     # We will assume the service is available at runtime.
-    
+
     from fastapi_role.rbac_service import rbac_service # Local import to avoid circular dep
 
     for requirement in requirements:

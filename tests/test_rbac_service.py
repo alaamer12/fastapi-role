@@ -10,9 +10,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.conftest import TestRole as Role
-from app.models.customer import Customer
-from app.models.user import User
-from app.services.rbac import RBACService
+from tests.conftest import TestCustomer as Customer
+from tests.conftest import TestUser as User
+from fastapi_role import RBACService
 
 
 class TestRBACService:

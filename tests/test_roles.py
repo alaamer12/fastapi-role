@@ -5,11 +5,11 @@ bitwise operations work as expected, and Casbin configurations are
 properly generated.
 """
 
-import pytest
 from enum import Enum
-from fastapi_role.core.roles import create_roles, RoleRegistry
+
 from fastapi_role.core.composition import RoleComposition
 from fastapi_role.core.config import CasbinConfig
+from fastapi_role.core.roles import create_roles, RoleRegistry
 
 
 class TestRoleFactory:

@@ -17,10 +17,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.rbac import Permission, Privilege, RBACQueryFilter, Role
-from app.models.customer import Customer
-from app.models.user import User
-from app.services.rbac import RBACService
+from fastapi_role import Permission, Privilege, RBACQueryFilter, Role
+from tests.conftest import TestCustomer as Customer
+from tests.conftest import TestUser as User
+from fastapi_role import RBACService
 
 
 class TestCasbinPerformance:

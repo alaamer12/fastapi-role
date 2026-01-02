@@ -2,8 +2,8 @@
 
 import asyncio
 
-from app.core.rbac import Role, require
-from app.models.user import User
+from fastapi_role import require, create_roles
+from tests.conftest import TestUser as User
 
 
 async def test_simple_decorator():
@@ -15,9 +15,11 @@ async def test_simple_decorator():
     user.email = "test@example.com"
     user.role = "salesman"
 
+    Role = create_roles(["ADMIN", "USER"])
+
     # Create function with multiple @require decorators (OR logic)
-    @require(Role.CUSTOMER)  # First requirement
-    @require(Role.SALESMAN)  # Second requirement (OR logic)
+    @require(Role.ADMIN)  # First requirement
+    @require(Role.USER)  # Second requirement (OR logic)
     async def test_function(user: User):
         return "success"
 

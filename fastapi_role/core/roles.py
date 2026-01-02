@@ -6,9 +6,11 @@ It also includes a registry to track valid roles throughout the application.
 """
 
 from __future__ import annotations
+
 from enum import Enum
-from typing import Type, List, Set, Optional, Any
-from .composition import RoleComposition
+from typing import Any, List, Optional, Set, Type
+
+from fastapi_role.core.composition import RoleComposition
 
 
 class RoleRegistry:
@@ -98,6 +100,7 @@ def _role_ror(self: Enum, other: Any) -> RoleComposition:
     return NotImplemented
 
 
+# noinspection PyUnresolvedReferences
 def create_roles(names: List[str]) -> Type[Enum]:
     """Creates a dynamic Role Enum from a list of names.
 

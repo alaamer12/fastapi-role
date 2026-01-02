@@ -16,9 +16,6 @@ from .rbac import (
     RoleRegistry,
     CasbinConfig,
 )
-from .rbac_actions import PageAction, TableAction
-# Note: rbac_template_helpers might need same treatment if it imported Role
-# from .rbac_template_helpers import Can, Has, RBACHelper, RBACTemplateMiddleware
 
 __version__ = "0.1.0"
 __all__ = [
@@ -33,12 +30,4 @@ __all__ = [
     "require",
     "RBACService",
     "RBACQueryFilter",
-    # Actions
-    "PageAction",
-    "TableAction",
-    # Template integration
-    # "Can",
-    # "Has", 
-    # "RBACHelper",
-    # "RBACTemplateMiddleware",
 ]

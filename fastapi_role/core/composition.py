@@ -5,8 +5,9 @@ to be combined using bitwise operators, forming complex authorization requiremen
 """
 
 from __future__ import annotations
+
 from enum import Enum
-from typing import Set, Any, Iterator
+from typing import Any, Iterator, Set
 
 
 class RoleComposition:

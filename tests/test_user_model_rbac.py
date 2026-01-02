@@ -12,8 +12,8 @@ Test Classes:
 
 from unittest.mock import MagicMock, patch
 
-from app.core.rbac import Role
-from app.models.user import User
+from fastapi_role import Role
+from tests.conftest import TestUser as User
 
 
 class TestUserRoleAssignment:
