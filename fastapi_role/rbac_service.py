@@ -13,10 +13,12 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi_role.base import BaseService
+from fastapi_role.core.ownership import OwnershipRegistry
 from fastapi_role.exception import (
     PolicyEvaluationException,
 )
 from fastapi_role.protocols import UserProtocol
+from fastapi_role.providers import DefaultOwnershipProvider
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -67,6 +69,12 @@ class RBACService(BaseService):
         self._customer_cache: dict[int, list[int]] = {}
         self._privilege_cache: dict[str, bool] = {}
         self._cache_timestamp = datetime.utcnow()
+
+        # Initialize ownership registry with default provider
+        self.ownership_registry = OwnershipRegistry(default_allow=False)
+        self.ownership_registry.register(
+            "*", DefaultOwnershipProvider(superadmin_role="superadmin", default_allow=False)
+        )
 
         # Set global instance (naive approach for decorator access)
         global rbac_service
@@ -119,27 +127,21 @@ class RBACService(BaseService):
     async def check_resource_ownership(
             self, user: UserProtocol, resource_type: str, resource_id: int
     ) -> bool:
-        """Check if user owns or has access to the resource."""
-        # Note: We need to know who is SUPERADMIN.
-        # This was previously hardcoded Role.SUPERADMIN.
-        # Ideally, we should check a policy or configuration.
-        # For now, checking against string 'superadmin' which is consistent with previous defaults,
-        # or checking if user has specific permission "*" on "*"
-
-        if user.role == "superadmin":  # Logic coupling: assumes superadmin role string
-            return True
-
-        # Get accessible customers for user
-        accessible_customers = await self.get_accessible_customers(user)
-
-        # For customer resources, check direct access
-        if resource_type == "customer":
-            return resource_id in accessible_customers
-
-        # Generalize: verify ownership of other resources
-        # (Same logic as before, omitted for brevity but should be kept if specific logic needed)
-
-        return True  # Placeholder for existing logic
+        """Check if user owns or has access to the resource.
+        
+        Uses the ownership registry to delegate to registered providers.
+        Falls back to wildcard provider (*) if no specific provider registered.
+        """
+        # Try specific resource type first
+        if self.ownership_registry.has_provider(resource_type):
+            return await self.ownership_registry.check(user, resource_type, resource_id)
+        
+        # Fall back to wildcard provider
+        if self.ownership_registry.has_provider("*"):
+            return await self.ownership_registry.check(user, "*", resource_id)
+        
+        # No provider registered - deny by default (fail closed)
+        return False
 
     async def get_accessible_customers(self, user: UserProtocol) -> list[int]:
         """Get list of customer IDs user can access."""

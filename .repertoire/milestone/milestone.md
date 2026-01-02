@@ -205,7 +205,7 @@ If `has_role` is not implemented, the library provides a default implementation 
 - Implemented `_extract_user_from_args` helper to duck-type user objects
 - Removed `app` dependency imports
 
-### [ ] Step 2.3: Abstract Resource Ownership
+### [x] Step 2.3: Abstract Resource Ownership
 
 **Current Implementation Problem:**
 `rbac_service.py:160-202` contains hardcoded resource type handling for `configuration`, `quote`, `order`, and `customer`. Each resource type has specific database queries and relationships.
@@ -237,7 +237,7 @@ Create `OwnershipRegistry`:
 2. `check(user, resource_type: str, resource_id: Any) -> bool`
 3. Default provider for "superadmin passes all" logic
 
-### [ ] Step 2.4: Decouple Query Filters
+### [x] Step 2.4: Decouple Query Filters
 
 **Current Implementation Problem:**
 `RBACQueryFilter` in `rbac.py:389-493` contains methods like `filter_configurations`, `filter_quotes`, `filter_orders` that directly import business models.
@@ -321,7 +321,7 @@ Create configuration loading priority:
 3. File configuration overrides defaults
 4. Defaults apply when nothing else specified
 
-### [ ] Step 3.3: Default Configuration Templates
+### [x] Step 3.3: Default Configuration Templates
 
 **Deliverables:**
 
