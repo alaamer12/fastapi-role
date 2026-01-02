@@ -231,13 +231,13 @@ class TestPermissionRequirementChecking:
         """Test checking permission requirement."""
         permission = Permission("configuration", "read")
 
-        with patch("app.core.rbac.rbac_service") as mock_rbac:
-            mock_rbac.check_permission = AsyncMock(return_value=True)
+        mock_service = AsyncMock()
+        mock_service.check_permission.return_value = True
 
-            result = await _check_permission_requirement(user, permission)
-            assert result is True
+        result = await _check_permission_requirement(mock_service, user, permission)
+        assert result is True
 
-            mock_rbac.check_permission.assert_called_once_with(user, "configuration", "read", {})
+        mock_service.check_permission.assert_called_once_with(user, "configuration", "read", {})
 
     @pytest.mark.asyncio
     async def test_check_permission_requirement_with_context(self, user):
@@ -245,15 +245,15 @@ class TestPermissionRequirementChecking:
         context = {"customer_id": 123}
         permission = Permission("configuration", "read", context)
 
-        with patch("app.core.rbac.rbac_service") as mock_rbac:
-            mock_rbac.check_permission = AsyncMock(return_value=True)
+        mock_service = AsyncMock()
+        mock_service.check_permission.return_value = True
 
-            result = await _check_permission_requirement(user, permission)
-            assert result is True
+        result = await _check_permission_requirement(mock_service, user, permission)
+        assert result is True
 
-            mock_rbac.check_permission.assert_called_once_with(
-                user, "configuration", "read", context
-            )
+        mock_service.check_permission.assert_called_once_with(
+            user, "configuration", "read", context
+        )
 
 
 class TestOwnershipRequirementChecking:
@@ -280,13 +280,15 @@ class TestOwnershipRequirementChecking:
         args = (123, user)
         kwargs = {}
 
-        with patch("app.core.rbac.rbac_service") as mock_rbac:
-            mock_rbac.check_resource_ownership = AsyncMock(return_value=True)
+        mock_service = AsyncMock()
+        mock_service.check_resource_ownership.return_value = True
 
-            result = await _check_ownership_requirement(user, ownership, mock_func, args, kwargs)
-            assert result is True
+        result = await _check_ownership_requirement(
+            mock_service, user, ownership, mock_func, args, kwargs
+        )
+        assert result is True
 
-            mock_rbac.check_resource_ownership.assert_called_once_with(user, "configuration", 123)
+        mock_service.check_resource_ownership.assert_called_once_with(user, "configuration", 123)
 
     @pytest.mark.asyncio
     async def test_check_ownership_requirement_kwargs(self, user):
@@ -299,13 +301,15 @@ class TestOwnershipRequirementChecking:
         args = (user,)
         kwargs = {"configuration_id": 456}
 
-        with patch("app.core.rbac.rbac_service") as mock_rbac:
-            mock_rbac.check_resource_ownership = AsyncMock(return_value=True)
+        mock_service = AsyncMock()
+        mock_service.check_resource_ownership.return_value = True
 
-            result = await _check_ownership_requirement(user, ownership, mock_func, args, kwargs)
-            assert result is True
+        result = await _check_ownership_requirement(
+            mock_service, user, ownership, mock_func, args, kwargs
+        )
+        assert result is True
 
-            mock_rbac.check_resource_ownership.assert_called_once_with(user, "configuration", 456)
+        mock_service.check_resource_ownership.assert_called_once_with(user, "configuration", 456)
 
 
 class TestPrivilegeRequirementChecking:
@@ -332,11 +336,13 @@ class TestPrivilegeRequirementChecking:
         args = (user,)
         kwargs = {}
 
-        with patch("app.core.rbac.rbac_service") as mock_rbac:
-            mock_rbac.check_permission = AsyncMock(return_value=True)
+        mock_service = AsyncMock()
+        mock_service.check_permission.return_value = True
 
-            result = await _check_privilege_requirement(user, privilege, mock_func, args, kwargs)
-            assert result is True
+        result = await _check_privilege_requirement(
+            mock_service, user, privilege, mock_func, args, kwargs
+        )
+        assert result is True
 
     @pytest.mark.asyncio
     async def test_check_privilege_requirement_with_ownership(self, user):
@@ -351,12 +357,14 @@ class TestPrivilegeRequirementChecking:
         args = (123, user)
         kwargs = {}
 
-        with patch("app.core.rbac.rbac_service") as mock_rbac:
-            mock_rbac.check_permission = AsyncMock(return_value=True)
-            mock_rbac.check_resource_ownership = AsyncMock(return_value=True)
+        mock_service = AsyncMock()
+        mock_service.check_permission.return_value = True
+        mock_service.check_resource_ownership.return_value = True
 
-            result = await _check_privilege_requirement(user, privilege, mock_func, args, kwargs)
-            assert result is True
+        result = await _check_privilege_requirement(
+            mock_service, user, privilege, mock_func, args, kwargs
+        )
+        assert result is True
 
 
 class TestUserExtraction:
@@ -453,7 +461,7 @@ class TestRequireDecorator:
         async def test_function(user: User):
             return "success"
 
-        with patch("app.core.rbac._check_role_requirement", return_value=True):
+        with patch("fastapi_role.rbac._check_role_requirement", return_value=True):
             result = await test_function(user)
             assert result == "success"
 
@@ -465,7 +473,7 @@ class TestRequireDecorator:
         async def test_function(user: User):
             return "success"
 
-        with patch("app.core.rbac._check_role_requirement", return_value=False):
+        with patch("fastapi_role.rbac._check_role_requirement", return_value=False):
             with pytest.raises(HTTPException) as exc_info:
                 await test_function(user)
 
@@ -510,7 +518,7 @@ class TestRequireDecorator:
             return "success"
 
         with patch(
-            "app.core.rbac._check_permission_requirement", new_callable=AsyncMock, return_value=True
+            "fastapi_role.rbac._check_permission_requirement", new_callable=AsyncMock, return_value=True
         ):
             result = await test_function(user)
             assert result == "success"
@@ -525,7 +533,7 @@ class TestRequireDecorator:
             return "success"
 
         with patch(
-            "app.core.rbac._check_ownership_requirement", new_callable=AsyncMock, return_value=True
+            "fastapi_role.rbac._check_ownership_requirement", new_callable=AsyncMock, return_value=True
         ):
             result = await test_function(123, user)
             assert result == "success"
@@ -540,7 +548,7 @@ class TestRequireDecorator:
         async def test_function(user: User):
             return "success"
 
-        with patch("app.core.rbac._check_privilege_requirement", return_value=True):
+        with patch("fastapi_role.rbac._check_privilege_requirement", return_value=True):
             result = await test_function(user)
             assert result == "success"
 
@@ -554,8 +562,8 @@ class TestRequireDecorator:
             return "success"
 
         with (
-            patch("app.core.rbac._check_role_requirement", return_value=True),
-            patch("app.core.rbac._check_permission_requirement", return_value=True),
+            patch("fastapi_role.rbac._check_role_requirement", return_value=True),
+            patch("fastapi_role.rbac._check_permission_requirement", return_value=True),
         ):
             result = await test_function(user)
             assert result == "success"
@@ -570,8 +578,8 @@ class TestRequireDecorator:
             return "success"
 
         with (
-            patch("app.core.rbac._check_role_requirement", return_value=True),
-            patch("app.core.rbac._check_permission_requirement", return_value=False),
+            patch("fastapi_role.rbac._check_role_requirement", return_value=True),
+            patch("fastapi_role.rbac._check_permission_requirement", return_value=False),
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await test_function(user)

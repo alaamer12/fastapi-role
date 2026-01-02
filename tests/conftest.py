@@ -10,6 +10,44 @@ from fastapi_role.rbac_service import RBACService
 TestRole = create_roles(["SUPERADMIN", "SALESMAN", "DATA_ENTRY", "PARTNER", "CUSTOMER"])
 
 
+class TestUser:
+    """Mock User implementing UserProtocol."""
+    
+    def __init__(self, id=1, email="test@example.com", role="customer", full_name="Test User", username="testuser", **kwargs):
+        self.id = id
+        self.email = email
+        self.role = role
+        # Optional fields often used in tests
+        self.full_name = full_name
+        self.username = username
+        # Set extra attributes
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def has_role(self, role_name: str) -> bool:
+        if self.role == "superadmin":
+            return True
+        return self.role == role_name
+
+    def __repr__(self):
+        return f"<User id={self.id} email={self.email} username={self.username} role={self.role}>"
+
+
+class TestCustomer:
+    """Mock Customer for testing."""
+    
+    def __init__(self, id=1, email="test@example.com", contact_person="Test User", **kwargs):
+        self.id = id
+        self.email = email
+        self.contact_person = contact_person
+        self.customer_type = "residential"
+        self.is_active = True
+        self.notes = ""
+        # Set extra attributes
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 @pytest.fixture(scope="session")
 def roles():
     """Return the TestRole enum class."""

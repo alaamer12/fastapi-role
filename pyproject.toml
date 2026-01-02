@@ -106,7 +106,6 @@ addopts = [
     "--tb=short",                   # Short traceback format
     "--cov-report=term-missing",    # Terminal coverage with missing lines
     # "--maxfail=5",                # Commented out - let CI control this
-    "--instafail",                  # Show failures instantly
 ]
 markers = [
     "unit: Unit tests (fast, isolated)",

@@ -12,7 +12,7 @@ Test Classes:
 
 from unittest.mock import MagicMock, patch
 
-from fastapi_role import Role
+from tests.conftest import TestRole as Role
 from tests.conftest import TestUser as User
 
 
@@ -214,7 +214,7 @@ class TestUserRoleIntegration:
         assert expected_subject == "salesman@company.com"
         assert expected_role == "salesman"
 
-    @patch("app.services.rbac.RBACService")
+    @patch("fastapi_role.rbac_service.RBACService")
     def test_user_role_rbac_service_integration(self, mock_rbac_service):
         """Test integration with RBACService for role management."""
         mock_service = MagicMock()
@@ -225,7 +225,7 @@ class TestUserRoleIntegration:
         user.role = Role.PARTNER.value
 
         # Simulate RBAC service initialization
-        from app.services.rbac import RBACService
+        from fastapi_role.rbac_service import RBACService
 
         rbac_service = RBACService(None)  # Mock DB session
 

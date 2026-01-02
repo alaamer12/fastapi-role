@@ -102,9 +102,9 @@ class TestMultipleRequireDecorators:
         async def test_function(user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock()
+            mock_check = mock_service.check_permission
             # First permission denied, second permission granted
             mock_check.side_effect = [False, True]
 
@@ -230,10 +230,8 @@ class TestPrivilegeObjects:
         async def test_function(user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_check:
-            mock_check.return_value = True
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock(return_value=True)
 
             result = await test_function(user)
             assert result == "success"
@@ -248,10 +246,8 @@ class TestPrivilegeObjects:
         async def test_function(user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_check:
-            mock_check.return_value = True
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock(return_value=True)
 
             result = await test_function(user)
             assert result == "success"
@@ -267,10 +263,8 @@ class TestPrivilegeObjects:
         async def test_function(user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_check:
-            mock_check.return_value = True
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock(return_value=True)
 
             result = await test_function(user)
             assert result == "success"
@@ -288,17 +282,12 @@ class TestPrivilegeObjects:
         async def test_function(customer_id: int, user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_perm:
-            with patch(
-                "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-            ) as mock_own:
-                mock_perm.return_value = True
-                mock_own.return_value = True
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock(return_value=True)
+            mock_service.check_resource_ownership = AsyncMock(return_value=True)
 
-                result = await test_function(123, user)
-                assert result == "success"
+            result = await test_function(123, user)
+            assert result == "success"
 
     @pytest.mark.asyncio
     async def test_privilege_permission_failure(self, user):
@@ -309,10 +298,8 @@ class TestPrivilegeObjects:
         async def test_function(user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_check:
-            mock_check.return_value = False
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock(return_value=False)
 
             with pytest.raises(HTTPException) as exc_info:
                 await test_function(user)
@@ -332,19 +319,14 @@ class TestPrivilegeObjects:
         async def test_function(customer_id: int, user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_perm:
-            with patch(
-                "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-            ) as mock_own:
-                mock_perm.return_value = True
-                mock_own.return_value = False  # Ownership denied
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_permission = AsyncMock(return_value=True)
+            mock_service.check_resource_ownership = AsyncMock(return_value=False) # Ownership denied
 
-                with pytest.raises(HTTPException) as exc_info:
-                    await test_function(123, user)
+            with pytest.raises(HTTPException) as exc_info:
+                await test_function(123, user)
 
-                assert exc_info.value.status_code == 403
+            assert exc_info.value.status_code == 403
 
     def test_privilege_string_representation(self):
         """Test Privilege object string representation."""
@@ -384,9 +366,9 @@ class TestContextExtraction:
         async def test_function(user: User, configuration_id: int):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             result = await test_function(user, configuration_id=123)
@@ -401,9 +383,9 @@ class TestContextExtraction:
         async def test_function(configuration_id: int, user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             result = await test_function(123, user)
@@ -418,9 +400,9 @@ class TestContextExtraction:
         async def test_function(cust_id: int, user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             result = await test_function(456, user)
@@ -448,9 +430,9 @@ class TestContextExtraction:
         async def update_configuration(configuration_id: int, user: User):
             return "updated"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             result = await update_configuration(123, user)
@@ -481,9 +463,9 @@ class TestResourceOwnershipDetection:
         async def create_order(quote_id: int, user: User):
             return "order_created"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             result = await create_order(789, user)
@@ -499,9 +481,9 @@ class TestResourceOwnershipDetection:
         async def complex_function(configuration_id: int, customer_id: int, user: User):
             return "success"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             # First decorator (configuration) should succeed, allowing access
             mock_check.return_value = True
 
@@ -516,9 +498,9 @@ class TestResourceOwnershipDetection:
         async def process_order(order_id: int, status: str, user: User, notes: str = None):
             return f"processed_{status}"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             result = await process_order(999, "completed", user, notes="All good")
@@ -533,9 +515,9 @@ class TestResourceOwnershipDetection:
         async def apply_template(template_id: int, user: User):
             return "applied"
 
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_service.check_resource_ownership = AsyncMock()
+            mock_check = mock_service.check_resource_ownership
             mock_check.return_value = True
 
             # Pass template_id as kwarg (should take priority)

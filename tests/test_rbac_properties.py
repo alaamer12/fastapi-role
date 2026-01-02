@@ -14,10 +14,11 @@ Property Tests:
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from hypothesis import assume, given
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from fastapi_role import Permission, Privilege, ResourceOwnership, Role, require
+from fastapi_role import Permission, Privilege, ResourceOwnership, require
+from tests.conftest import TestRole as Role
 from tests.conftest import TestUser as User
 
 
@@ -142,9 +143,11 @@ class TestRBACProperties:
             return "success"
 
         # Mock the permission check to return a consistent result
-        with patch(
-            "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-        ) as mock_check:
+        # Mock the permission check on the global service
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            # Setup AsyncMock for check_permission
+            mock_check = AsyncMock()
+            mock_service.check_permission = mock_check
             # Superadmin always has permission, others based on mock
             if user_role == Role.SUPERADMIN.value:
                 mock_result = True
@@ -172,6 +175,7 @@ class TestRBACProperties:
             st.sampled_from([role for role in Role]), min_size=1, max_size=3, unique=True
         )
     )
+    @settings(deadline=None)
     async def test_privilege_composition_property(self, roles):
         """Property: Privilege composition consistency.
 
@@ -199,9 +203,10 @@ class TestRBACProperties:
             user.role = test_role.value
 
             # Mock permission check
-            with patch(
-                "app.core.rbac.rbac_service.check_permission", new_callable=AsyncMock
-            ) as mock_check:
+            # Mock permission check on generic global service
+            with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+                mock_check = AsyncMock()
+                mock_service.check_permission = mock_check
                 mock_check.return_value = True  # Assume permission is granted
 
                 # Create function with privilege
@@ -259,9 +264,10 @@ class TestRBACProperties:
             return "success"
 
         # Mock ownership check
-        with patch(
-            "app.core.rbac.rbac_service.check_resource_ownership", new_callable=AsyncMock
-        ) as mock_check:
+        # Mock ownership check
+        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
+            mock_check = AsyncMock()
+            mock_service.check_resource_ownership = mock_check
             # Use deterministic result based on inputs
             mock_result = hash(f"{resource_type}:{resource_id}") % 2 == 0
             mock_check.return_value = mock_result

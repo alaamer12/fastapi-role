@@ -168,7 +168,7 @@ Create a `RoleRegistry` class that:
 3. Enables runtime introspection of available roles
 4. Supports role aliases for backward compatibility
 
-### [ ] Step 2.2: Abstract User Model
+### [x] Step 2.2: Abstract User Model
 
 **Current Implementation Problem:**
 `rbac.py:40` directly imports `from app.models.user import User`, requiring users to have a specific User model in a specific location with specific attributes.
@@ -198,6 +198,12 @@ If `has_role` is not implemented, the library provides a default implementation 
 1. Compares `user.role` against the given role name
 2. Handles superadmin bypass if configured
 3. Supports role composition checking
+
+**Implementation Documentation:**
+- Created `fastapi_role/protocols/user.py` defining `UserProtocol`
+- Updated `fastapi_role/rbac.py` and `fastapi_role/rbac_service.py` to use `UserProtocol` instead of concrete `User` model
+- Implemented `_extract_user_from_args` helper to duck-type user objects
+- Removed `app` dependency imports
 
 ### [ ] Step 2.3: Abstract Resource Ownership
 

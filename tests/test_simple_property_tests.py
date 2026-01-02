@@ -9,7 +9,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import composite
 
-from fastapi_role import Role
+from tests.conftest import TestRole as Role
 from tests.conftest import TestCustomer as Customer
 from tests.conftest import TestUser as User
 

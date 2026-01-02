@@ -11,7 +11,6 @@ from .rbac import (
     RoleComposition,
     require,
     RBACService,
-    RBACQueryFilter,
     create_roles,
     RoleRegistry,
     CasbinConfig,
@@ -29,5 +28,4 @@ __all__ = [
     "Privilege",
     "require",
     "RBACService",
-    "RBACQueryFilter",
 ]
