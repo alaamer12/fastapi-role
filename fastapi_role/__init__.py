@@ -8,19 +8,24 @@ from .rbac import (
     Permission,
     Privilege,
     ResourceOwnership,
-    Role,
     RoleComposition,
     require,
     RBACService,
     RBACQueryFilter,
+    create_roles,
+    RoleRegistry,
+    CasbinConfig,
 )
 from .rbac_actions import PageAction, TableAction
-from .rbac_template_helpers import Can, Has, RBACHelper, RBACTemplateMiddleware
+# Note: rbac_template_helpers might need same treatment if it imported Role
+# from .rbac_template_helpers import Can, Has, RBACHelper, RBACTemplateMiddleware
 
 __version__ = "0.1.0"
 __all__ = [
     # Core RBAC classes
-    "Role",
+    "create_roles",
+    "RoleRegistry",
+    "CasbinConfig",
     "RoleComposition", 
     "Permission",
     "ResourceOwnership",
@@ -32,8 +37,8 @@ __all__ = [
     "PageAction",
     "TableAction",
     # Template integration
-    "Can",
-    "Has", 
-    "RBACHelper",
-    "RBACTemplateMiddleware",
+    # "Can",
+    # "Has", 
+    # "RBACHelper",
+    # "RBACTemplateMiddleware",
 ]

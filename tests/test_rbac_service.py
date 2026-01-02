@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rbac import Role
+from tests.conftest import TestRole as Role
 from app.models.customer import Customer
 from app.models.user import User
 from app.services.rbac import RBACService

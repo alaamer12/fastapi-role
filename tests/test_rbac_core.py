@@ -13,7 +13,7 @@ from app.core.rbac import (
     Permission,
     Privilege,
     ResourceOwnership,
-    Role,
+
     RoleComposition,
     _check_ownership_requirement,
     _check_permission_requirement,
@@ -23,6 +23,7 @@ from app.core.rbac import (
     _extract_user_from_args,
     require,
 )
+from tests.conftest import TestRole as Role
 from app.models.user import User
 
 

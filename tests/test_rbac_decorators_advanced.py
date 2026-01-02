@@ -16,7 +16,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.core.rbac import Permission, Privilege, ResourceOwnership, Role, require
+from app.core.rbac import Permission, Privilege, ResourceOwnership, require
+from tests.conftest import TestRole as Role
 from app.models.user import User
 
 
