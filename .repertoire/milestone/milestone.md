@@ -66,9 +66,9 @@ Transform this codebase into a package that:
 
 ---
 
-## 2. [ ] Phase 1: Analysis & Preparation
+## 2. [/] Phase 1: Analysis & Preparation
 
-### [ ] Step 1.1: Complete Code Audit
+### [1] Step 1.1: Complete Code Audit
 
 **Objective:** Create a comprehensive inventory of all files, dependencies, and business-specific coupling points.
 
@@ -94,7 +94,7 @@ Transform this codebase into a package that:
    - Default customer type: `residential`
    - File paths: `config/rbac_model.conf`, `config/rbac_policy.csv`
 
-### [ ] Step 1.2: Requirements Gathering
+### [1] Step 1.2: Requirements Gathering
 
 **Objective:** Define what the generalized package must support.
 
@@ -113,7 +113,7 @@ Transform this codebase into a package that:
 - NFR-4: Python 3.9+ compatibility
 - NFR-5: Minimal dependency footprint
 
-### [ ] Step 1.3: Create Refactoring Branch
+### [1] Step 1.3: Create Refactoring Branch
 
 **Objective:** Preserve original functionality while enabling transformation.
 
