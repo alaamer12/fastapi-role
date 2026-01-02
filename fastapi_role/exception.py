@@ -3,6 +3,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class PolicyEvaluationException(Exception):
     """Raised when Casbin policy evaluation fails due to system errors.
 

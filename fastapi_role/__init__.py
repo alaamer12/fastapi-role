@@ -23,7 +23,7 @@ __all__ = [
     "create_roles",
     "RoleRegistry",
     "CasbinConfig",
-    "RoleComposition", 
+    "RoleComposition",
     "Permission",
     "ResourceOwnership",
     "Privilege",

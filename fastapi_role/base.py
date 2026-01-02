@@ -12,7 +12,7 @@ Features:
     - Transaction handling
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession # We need also to handle sync session for users
 
 __all__ = ["BaseService"]
 

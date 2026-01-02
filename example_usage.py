@@ -18,7 +18,7 @@ from fastapi_role import (
     require,
     Permission,
     Privilege,
-    ResourceOwnership
+    ResourceOwnership,
 )
 
 # --- 1. Define Your Roles ---
@@ -41,6 +41,7 @@ config.add_role_inheritance(Role.SALESMAN, Role.CUSTOMER)
 # SUPERADMIN inherits everything SALESMAN can do
 config.add_role_inheritance(Role.SUPERADMIN, Role.SALESMAN)
 
+
 # --- 3. Mock Setup ---
 class User(BaseModel):
     id: int
@@ -48,10 +49,15 @@ class User(BaseModel):
     role: str
     username: str = ""
 
+
 # Mock database session for rbac_service
 class MockSession:
-    async def commit(self): pass
-    async def rollback(self): pass
+    async def commit(self):
+        pass
+
+    async def rollback(self):
+        pass
+
 
 # Initialize the global rbac_service (usually done in app lifecycle)
 db_session = MockSession()
@@ -60,40 +66,47 @@ rbac_service_instance = RBACService(db=db_session, config=config)
 # --- 4. FastAPI App ---
 app = FastAPI(title="FastAPI-Role Demo")
 
+
 async def get_current_user() -> User:
     """Mock dependency to simulate a logged-in user."""
     # We'll return a SALESMAN for this demo
     return User(id=2, email="salesman@example.com", role=Role.SALESMAN.value, username="sales_pro")
+
 
 # --- 5. Custom Privilege Definition ---
 # Reusable bundle of role/permission/ownership logic
 UserManagement = Privilege(
     roles=[Role.SUPERADMIN, Role.SALESMAN],
     permission=Permission("user", "update"),
-    resource=ResourceOwnership("user")
+    resource=ResourceOwnership("user"),
 )
 
 # --- 6. Protected Endpoints ---
 
+
 @app.get("/")
 async def public():
     return {"message": "Public access"}
+
 
 @app.get("/config/read")
 @require(Role.CUSTOMER)  # Salesman inherits this
 async def read_config(user: User = Depends(get_current_user)):
     return {"message": f"Hello {user.username}, you can read configurations."}
 
+
 @app.get("/config/write")
 @require(Role.SALESMAN)
 async def write_config(user: User = Depends(get_current_user)):
     return {"message": f"Hello {user.username}, you can write configurations."}
+
 
 @app.get("/admin-only")
 @require(Role.SUPERADMIN)
 async def admin_only(user: User = Depends(get_current_user)):
     # This will fail for our mock salesman
     return {"message": "Admin only"}
+
 
 @app.get("/user/{user_id}")
 @require(UserManagement)
@@ -104,6 +117,7 @@ async def edit_user(user_id: int, user: User = Depends(get_current_user)):
 
 if __name__ == "__main__":
     import uvicorn
+
     print("\n[FastAPI-Role] Demo started!")
     print(f"Active Roles: {list(Role.__members__.keys())}")
     print("Try accessing: http://localhost:8000/config/read")

@@ -39,9 +39,6 @@ dependencies = [
     "sqlalchemy",
     "pydantic",
     "pydantic-settings",
-    "python-jose[cryptography]",
-    "passlib[bcrypt]",
-    "jinja2",
 ]
 
 [dependency-groups]
@@ -49,6 +46,11 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "pytest-xdist",           # Parallel test execution
+    "pytest-sugar",           # Better test output
+    "pytest-clarity",         # Better assertion diffs
+    "pytest-icdiff",          # Improved diff output
+    "pytest-emoji",           # Emoji test output
     "ruff",
     "mypy",
     "httpx",
@@ -64,9 +66,10 @@ Issues = "https://github.com/alaamer12/fastapi-role/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["fastapi_role"]
 
+
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -81,11 +84,47 @@ select = [
 ignore = [
     "E501",  # line too long (handled by formatter)
     "B008",  # do not perform function calls in argument defaults
-    "UP045",
+    "W191",  # indentation contains tabs
+    "UP045", # Old types pattern
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused imports in __init__.py
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=fastapi_role"
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",                           # Verbose output
+    "-l",                           # Show local variables in tracebacks
+    "-ra",                          # Show all test results summary
+    "--strict-markers",             # Strict marker checking
+    "-W", "default",                # Show warnings
+    "--tb=short",                   # Short traceback format
+    "--cov-report=term-missing",    # Terminal coverage with missing lines
+    # "--maxfail=5",                # Commented out - let CI control this
+    "--instafail",                  # Show failures instantly
+]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (slower, full stack)",
+    "slow: Slow tests",
+    "ci_cd_issue: Tests that have known issues in CI/CD environment but pass locally",
+]
+log_cli = false
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# Enhanced error reporting
+junit_family = "xunit2"
+junit_logging = "all"
+junit_log_passing_tests = false

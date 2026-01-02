@@ -56,7 +56,9 @@ class RBACService(BaseService):
             # Fallback or Error?
             # For now, we raise error as we enforce config usage.
             # Alternatively, we could create a default config but that requires Role definitions.
-            logger.warning("No CasbinConfig provided to RBACService. Authorization checks may fail.")
+            logger.warning(
+                "No CasbinConfig provided to RBACService. Authorization checks may fail."
+            )
             self.enforcer = None
 
         # Request-scoped caches for performance
@@ -70,7 +72,7 @@ class RBACService(BaseService):
         rbac_service = self
 
     async def check_permission(
-            self, user: User, resource: str, action: str, context: Optional[dict] = None
+        self, user: User, resource: str, action: str, context: Optional[dict] = None
     ) -> bool:
         """Check if user has permission for action on resource."""
         if not self.enforcer:
@@ -114,7 +116,7 @@ class RBACService(BaseService):
             return False
 
     async def check_resource_ownership(
-            self, user: User, resource_type: str, resource_id: int
+        self, user: User, resource_type: str, resource_id: int
     ) -> bool:
         """Check if user owns or has access to the resource."""
         # Note: We need to know who is SUPERADMIN.

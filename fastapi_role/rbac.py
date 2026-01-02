@@ -25,6 +25,7 @@ from fastapi import HTTPException
 
 from fastapi_role.core.composition import RoleComposition
 from fastapi_role.core.config import CasbinConfig
+
 # Import core components
 from fastapi_role.core.roles import RoleRegistry, create_roles
 from fastapi_role.rbac_service import RBACService
@@ -142,6 +143,7 @@ class Privilege:
         """Detailed string representation."""
         return self.__str__()
 
+
 def require(*requirements) -> Callable:
     """Advanced decorator supporting multiple authorization patterns.
 
@@ -215,32 +217,34 @@ async def _evaluate_requirement_group(
     role_satisfied = True
     permission_satisfied = True
     ownership_satisfied = True
-    
-    # We need access to the RBAC service. 
+
+    # We need access to the RBAC service.
     # Current design implies a global 'rbac_service' or one imported from app.core.rbac.
     # In this new design, we should probably resolve it from app dependency or context.
     # For compatibility, we'll try to import it from main location or assume it's injected.
     # For now, we will assume `from fastapi_role.rbac_service import rbac_service` is how it is used?
-    # No, typically it is `app.core.rbac.rbac_service`. 
-    # We will assume a global rbac_service instance is available or passed. 
+    # No, typically it is `app.core.rbac.rbac_service`.
+    # We will assume a global rbac_service instance is available or passed.
     # Since we can't easily change the signature of the decorator, we rely on the import.
 
-    # FIXME: This is a coupling point. 
+    # FIXME: This is a coupling point.
     # We will assume the service is available at runtime.
 
-    from fastapi_role.rbac_service import rbac_service # Local import to avoid circular dep
+    from fastapi_role.rbac_service import rbac_service  # Local import to avoid circular dep
 
     for requirement in requirements:
         if isinstance(requirement, (Enum, RoleComposition, list)):
-             # Check if it's an Enum (Role)
-             # Role requirement
+            # Check if it's an Enum (Role)
+            # Role requirement
             has_role_requirement = True
             role_satisfied = await _check_role_requirement(user, requirement)
 
         elif isinstance(requirement, Permission):
             # Permission requirement
             has_permission_requirement = True
-            permission_satisfied = await _check_permission_requirement(rbac_service, user, requirement)
+            permission_satisfied = await _check_permission_requirement(
+                rbac_service, user, requirement
+            )
 
         elif isinstance(requirement, ResourceOwnership):
             # Ownership requirement
@@ -251,7 +255,9 @@ async def _evaluate_requirement_group(
 
         elif isinstance(requirement, Privilege):
             # Privilege requirement (contains role + permission + ownership)
-            return await _check_privilege_requirement(rbac_service, user, requirement, func, args, kwargs)
+            return await _check_privilege_requirement(
+                rbac_service, user, requirement, func, args, kwargs
+            )
 
     # All requirements in group must be satisfied (AND logic)
     final_role_satisfied = role_satisfied if has_role_requirement else True
@@ -268,8 +274,8 @@ async def _check_role_requirement(
     # Note: We can't check for SUPERADMIN static enum here easily anymore unless we have access to the specific Role class.
     # But user.role is a string. If the string matches 'superadmin' (or whatever was configured), it should pass.
     # Ideally, we check equality against the requirement.
-    
-    current_role = user.role # String value
+
+    current_role = user.role  # String value
 
     if isinstance(role_req, Enum):
         return current_role == role_req.value

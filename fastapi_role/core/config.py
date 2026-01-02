@@ -111,7 +111,9 @@ class CasbinConfig:
         sub_str = subject.value if isinstance(subject, Enum) else subject
         self.policies.append(Policy(sub_str, resource, action, effect))
 
-    def add_role_inheritance(self, child_role: Union[str, Enum], parent_role: Union[str, Enum]) -> None:
+    def add_role_inheritance(
+        self, child_role: Union[str, Enum], parent_role: Union[str, Enum]
+    ) -> None:
         """Adds a role inheritance policy (g).
 
         Args:

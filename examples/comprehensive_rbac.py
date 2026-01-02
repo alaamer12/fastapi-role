@@ -25,7 +25,7 @@ try:
         RBACService,
         require,
         Permission,
-        RoleComposition
+        RoleComposition,
     )
 except ImportError:
     print("Error: fastapi-role library not found in path.")
@@ -54,18 +54,25 @@ config.add_role_inheritance(Role.ADMIN, Role.EDITOR)
 # SUPERADMIN is a special case often handled in logic, but can be added here too
 config.add_role_inheritance(Role.SUPERADMIN, Role.ADMIN)
 
+
 # --- 3. Mock Models for Demonstration ---
 class User(BaseModel):
     """Simple User model matching the protocol required by RBACService."""
+
     id: int
     email: str
     role: str
 
+
 # Mock Database session required by RBACService (which inherits from BaseService)
 # In reality, this would be an AsyncSession from SQLAlchemy.
 class MockDB:
-    async def commit(self): pass
-    async def rollback(self): pass
+    async def commit(self):
+        pass
+
+    async def rollback(self):
+        pass
+
 
 # --- 4. Initialize RBAC Service ---
 # Usually done in a dependency or global context
@@ -75,20 +82,24 @@ rbac_service = RBACService(db=mock_db, config=config)
 # --- 5. FastAPI Application Setup ---
 app = FastAPI(title="FastAPI-Role Comprehensive Example")
 
+
 async def get_current_user(request: Request) -> User:
     """Dependency to simulate a logged-in user.
-    
+
     Usually, you would extract this from a JWT token.
     """
     # Simulate an EDITOR user for this demo
     return User(id=1, email="editor@example.com", role=Role.EDITOR.value)
 
+
 # --- 6. Protected Routes ---
+
 
 @app.get("/public")
 async def public_zone():
     """Zone accessible to everyone."""
     return {"message": "Hello World"}
+
 
 @app.get("/articles/read")
 @require(Role.VIEWER)  # Requires VIEWER role (EDITOR inherits this)
@@ -96,11 +107,13 @@ async def read_articles(user: User = Depends(get_current_user)):
     """Protected by base role."""
     return {"message": f"Welcome {user.email}, you can read articles."}
 
+
 @app.get("/articles/edit")
 @require(Role.EDITOR)  # Requires EDITOR role
 async def edit_articles(user: User = Depends(get_current_user)):
     """Protected by specific role."""
     return {"message": f"Hello {user.email}, you have permission to edit."}
+
 
 @app.get("/management")
 @require(Role.ADMIN | Role.SUPERADMIN)  # Chained roles using bitwise OR
@@ -108,17 +121,20 @@ async def admin_portal(user: User = Depends(get_current_user)):
     """Protected by a composition of roles."""
     return {"message": "Admin portal accessed."}
 
+
 @app.get("/custom-permission")
-@require(Permission("article", "publish")) # Permission-based check
+@require(Permission("article", "publish"))  # Permission-based check
 async def publish_article(user: User = Depends(get_current_user)):
     """Protected by specific action permission."""
     # Note: For this to pass for our EDITOR, we'd need to add the policy
     # config.add_policy(Role.EDITOR, "article", "publish")
     return {"message": "Article published!"}
 
+
 # --- 7. Usage Implementation ---
 if __name__ == "__main__":
     import uvicorn
+
     print("\n--- FastAPI-Role Example ---")
     print(f"Roles created: {Role.__members__.keys()}")
     print("Starting server...")
