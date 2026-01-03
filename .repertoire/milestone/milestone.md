@@ -237,6 +237,14 @@ Create `OwnershipRegistry`:
 2. `check(user, resource_type: str, resource_id: Any) -> bool`
 3. Default provider for "superadmin passes all" logic
 
+**Implementation Documentation:**
+- Created `fastapi_role/core/ownership.py` with `OwnershipProvider` protocol and `OwnershipRegistry` class
+- Created `fastapi_role/providers/default_ownership.py` with `DefaultOwnershipProvider` (superadmin bypass + configurable defaults)
+- Updated `fastapi_role/rbac_service.py` to integrate `OwnershipRegistry` with wildcard (*) provider
+- Removed hardcoded 'superadmin' checks from `check_resource_ownership` method
+- Registry supports resource-specific providers with fallback to wildcard provider
+- Tests: `tests/test_ownership_registry.py` (18 tests covering registry, providers, and service integration)
+
 ### [x] Step 2.4: Decouple Query Filters
 
 **Current Implementation Problem:**
@@ -265,6 +273,14 @@ Create `QueryFilterBuilder`:
 The user implements their own filter methods using the primitives:
 - `get_accessible_resources(user, resource_type) -> list[int]`
 - Apply to their specific query syntax
+
+**Implementation Documentation:**
+- Created `fastapi_role/helpers/query_filter.py` with generic helper utilities
+- Implemented `get_accessible_resource_ids()`: filters candidate IDs based on ownership checks
+- Implemented `check_bulk_ownership()`: performs bulk ownership checks returning dict mapping
+- Note: `RBACQueryFilter` did NOT exist in library code (only mentioned in old docs)
+- Helpers are generic and work with any resource type via `RBACService.check_resource_ownership`
+- Tests: `tests/test_query_helpers.py` (8 tests covering filtering patterns and bulk operations)
 
 ---
 
@@ -332,42 +348,63 @@ Create configuration loading priority:
    - Resource ownership with roles
    - Hierarchical roles with inheritance
 
+**Implementation Documentation:**
+- Added `platformdirs` dependency to `pyproject.toml`
+- Updated `fastapi_role/core/config.py` `CasbinConfig` class:
+  - Added `app_name` parameter (default: "fastapi-role")
+  - Added `filepath` parameter (optional, defaults to platformdirs-based path)
+  - Implemented `_get_default_filepath()`: uses `user_data_path("fastapi-role") / "roles" / {md5(app_name)}`
+  - Implemented `_ensure_files_exist()`: creates directory and generates default `rbac_model.conf` and `rbac_policy.csv`
+  - Added `get_model_path()` and `get_policy_path()` methods
+- Default files are created on-demand with standard RBAC model and example policy comments
+- Tests: `tests/test_config_platformdirs.py` (12 tests covering hash generation, file creation, and idempotency)
+
 ---
 
-## 5. [ ] Phase 4: Extension Points & Plugin Architecture
+## 5. [/] Phase 4: Extension Points & Plugin Architecture
 
-### [ ] Step 4.1: Define Extension Interfaces
+**Status:** Partially complete - Ownership Provider implemented in Phase 2.
 
-**Objective:** Create clear extension points for advanced customization.
+### [x] Step 4.1: Ownership Provider (Completed in Phase 2)
 
-**Extension Points:**
+**Implementation:**
+- Created `OwnershipProvider` protocol in `fastapi_role/core/ownership.py`
+- Implemented `OwnershipRegistry` for resource-specific provider registration
+- Created `DefaultOwnershipProvider` with superadmin bypass and configurable defaults
+- Integrated into `RBACService` with wildcard (*) fallback
+- See Phase 2, Step 2.3 for full details
+
+### [ ] Step 4.2: Define Remaining Extension Interfaces
+
+**Objective:** Create additional extension points for advanced customization.
+
+**Remaining Extension Points:**
 
 1. **Subject Provider:**
    - Determines what value is used as the Casbin subject
    - Default: Use `user.email`
    - Custom: User ID, username, or composite value
+   - **Status:** Not yet implemented (currently hardcoded to `user.email` in `rbac_service.py`)
 
 2. **Role Provider:**
    - Determines how to get a user's roles
    - Default: Read `user.role` attribute
    - Custom: Multi-role support, role from database
+   - **Status:** Not yet implemented (currently uses `user.role` directly)
 
 3. **Policy Adapter:**
    - Determines how policies are stored
-   - Default: File-based CSV
+   - Default: In-memory via `CasbinConfig`
    - Custom: Database, Redis, external API
+   - **Status:** Partially implemented (in-memory works, file-based via platformdirs)
 
 4. **Cache Provider:**
    - Determines how permission cache works
-   - Default: In-memory dictionary
+   - Default: In-memory dictionary in `RBACService`
    - Custom: Redis, Memcached, distributed cache
+   - **Status:** Not yet implemented (currently hardcoded dict in `rbac_service.py`)
 
-5. **Ownership Provider:**
-   - Determines resource ownership validation
-   - Default: Superadmin always passes
-   - Custom: Database lookups, external service calls
-
-### [ ] Step 4.2: Create Provider Registration System
+### [ ] Step 4.3: Create Provider Registration System
 
 **Implementation Strategy:**
 
@@ -377,27 +414,71 @@ Create a central `RBACProviders` registry that:
 3. Validates provider interface compliance
 4. Provides factory method for creating configured instances
 
+**Note:** `OwnershipRegistry` already implements this pattern for ownership providers. Consider generalizing this pattern for other provider types.
+
 Provider lifecycle:
 1. Providers are registered at application startup
 2. Providers are initialized with configuration when RBAC is initialized
 3. Providers may implement async initialization for database connections
 4. Providers should be reusable across requests
 
-### [ ] Step 4.3: Implement Default Providers
+### [ ] Step 4.4: Implement Remaining Default Providers
 
 **Deliverables:**
 
-1. `DefaultSubjectProvider`: Returns `user.email`
-2. `DefaultRoleProvider`: Returns `user.role` with optional superadmin bypass
-3. `FileAdapter`: Casbin file adapter wrapper
-4. `MemoryCacheProvider`: Dictionary-based cache with TTL
-5. `DefaultOwnershipProvider`: Superadmin always passes, others configurable
+1. ✅ `DefaultOwnershipProvider`: Implemented in `fastapi_role/providers/default_ownership.py`
+2. [ ] `DefaultSubjectProvider`: Returns `user.email`
+3. [ ] `DefaultRoleProvider`: Returns `user.role` with optional superadmin bypass
+4. [ ] `FileAdapter`: Casbin file adapter wrapper (partially done via `CasbinConfig`)
 
 ---
 
-## 6. [ ] Phase 5: Testing Strategy Transformation
+## 6. [/] Phase 5: Testing Strategy Transformation
 
-### [ ] Step 5.1: Analyze Current Test Suite
+**Status:** Partially complete - New test infrastructure created, new tests written for generalized features.
+
+### [x] Step 5.1: Create Test Infrastructure
+
+**Implementation:**
+
+Created `tests/conftest.py` with:
+- `TestUser` class implementing `UserProtocol` for testing
+- `TestRole` enum with standard test roles (SUPERADMIN, ADMIN, CUSTOMER, SALESMAN)
+- `TestCustomer` class for business-specific test scenarios
+- Pytest fixtures for common test setup
+
+**Approach:**
+
+1. ✅ **Mock User Class:** `TestUser` implements `UserProtocol` with `id`, `email`, `role` attributes
+2. ✅ **Mock Configuration:** Tests use in-memory `CasbinConfig` without file system dependencies
+3. ✅ **Test Fixtures:** Created fixtures for RBAC service, users, and providers
+4. ✅ **Test Roles:** Defined standard `TestRole` enum for consistent testing
+
+### [x] Step 5.2: Add New Test Categories
+
+**New Tests Implemented:**
+
+1. ✅ **Configuration Tests** (`tests/test_config_platformdirs.py` - 12 tests):
+   - Test `app_name` and hash-based filepath generation
+   - Test custom filepath override
+   - Test directory and file creation
+   - Test idempotent file generation
+   - Test hash consistency
+
+2. ✅ **Ownership Provider Tests** (`tests/test_ownership_registry.py` - 18 tests):
+   - Test `OwnershipRegistry` registration and checks
+   - Test `DefaultOwnershipProvider` superadmin bypass
+   - Test allowed roles and custom superadmin role
+   - Test RBACService integration with ownership registry
+   - Test wildcard provider fallback
+
+3. ✅ **Query Helper Tests** (`tests/test_query_helpers.py` - 8 tests):
+   - Test `get_accessible_resource_ids` filtering
+   - Test `check_bulk_ownership` bulk operations
+   - Test partial access scenarios
+   - Test different resource types
+
+### [ ] Step 5.3: Analyze and Transform Existing Tests
 
 **Current Test Files:**
 - `test_rbac_core.py` (580 lines): Core RBAC class tests
@@ -409,32 +490,12 @@ Provider lifecycle:
 - `test_simple_property_tests.py` (347 lines): Simplified property tests
 - `test_user_model_rbac.py` (315 lines): User model integration tests
 
-**Issue:** Tests depend on `app.core.rbac`, `app.models.user`, `app.models.customer`, etc.
+**Issue:** Many tests still depend on `app.core.rbac`, `app.models.user`, `app.models.customer`, etc.
 
-### [ ] Step 5.2: Create Test Infrastructure
-
-**Approach:**
-
-1. **Create Mock User Class:**
-   Define a `MockUser` class that implements `UserProtocol` for testing.
-
-2. **Create Mock Configuration:**
-   Define default test configuration that doesn't require file system.
-
-3. **Create Test Fixtures:**
-   - `@pytest.fixture` for RBAC service with in-memory configuration
-   - `@pytest.fixture` for users with various roles
-   - `@pytest.fixture` for mock ownership providers
-
-4. **Create Test Roles:**
-   Define a standard set of test roles that all tests can use.
-
-### [ ] Step 5.3: Transform Existing Tests
-
-**Strategy:**
+**Transformation Strategy:**
 
 1. Preserve all test logic and assertions
-2. Replace business-specific imports with library-provided mocks
+2. Replace business-specific imports with library-provided mocks (`TestUser`, `TestRole`)
 3. Replace hardcoded `Role.SUPERADMIN` with configurable role from test config
 4. Replace database mocks with in-memory implementations
 5. Add new tests for dynamic role configuration
@@ -448,27 +509,21 @@ Provider lifecycle:
 5. **Performance Tests:** Ensure caching and performance meet requirements
 6. **Example Tests:** Verify documentation examples work correctly
 
-### [ ] Step 5.4: Add New Test Categories
+### [ ] Step 5.4: Add Remaining Test Coverage
 
-**New Tests Required:**
+**Additional Tests Required:**
 
-1. **Configuration Tests:**
-   - Test loading from environment variables
-   - Test loading from different file formats
-   - Test configuration validation
-   - Test configuration override priority
-
-2. **Dynamic Role Tests:**
-   - Test creating custom roles at runtime
+1. **Dynamic Role Tests:**
+   - Test creating custom roles at runtime with `create_roles()`
    - Test role composition with custom roles
-   - Test role registration and validation
+   - Test `RoleRegistry` validation
 
-3. **Provider Tests:**
-   - Test provider registration
-   - Test provider lifecycle
-   - Test provider fallback behavior
+2. **Provider Tests:**
+   - Test Subject Provider (when implemented)
+   - Test Role Provider (when implemented)
+   - Test Cache Provider (when implemented)
 
-4. **Compatibility Tests:**
+3. **Compatibility Tests:**
    - Test with minimal User models
    - Test with SQLAlchemy models
    - Test with Pydantic models

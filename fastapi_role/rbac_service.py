@@ -17,8 +17,18 @@ from fastapi_role.core.ownership import OwnershipRegistry
 from fastapi_role.exception import (
     PolicyEvaluationException,
 )
-from fastapi_role.protocols import UserProtocol
-from fastapi_role.providers import DefaultOwnershipProvider
+from fastapi_role.protocols import (
+    CacheProvider,
+    RoleProvider,
+    SubjectProvider,
+    UserProtocol,
+)
+from fastapi_role.providers import (
+    DefaultCacheProvider,
+    DefaultOwnershipProvider,
+    DefaultRoleProvider,
+    DefaultSubjectProvider,
+)
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -37,15 +47,30 @@ class RBACService(BaseService):
     Now initialized with a CasbinConfig object for zero-file configuration.
     """
 
-    def __init__(self, db: AsyncSession, config: Optional[CasbinConfig] = None):
+    def __init__(
+        self,
+        db: AsyncSession,
+        config: Optional[CasbinConfig] = None,
+        subject_provider: Optional[SubjectProvider] = None,
+        role_provider: Optional[RoleProvider] = None,
+        cache_provider: Optional[CacheProvider] = None,
+    ):
         """Initializes the RBAC service.
 
         Args:
             db (AsyncSession): Database session for operations.
             config (Optional[CasbinConfig]): CasbinConfig object containing
                 the security model.
+            subject_provider: Optional custom subject provider.
+            role_provider: Optional custom role provider.
+            cache_provider: Optional custom cache provider.
         """
         super().__init__(db)
+
+        # Initialize providers with defaults if not provided
+        self.subject_provider = subject_provider or DefaultSubjectProvider()
+        self.role_provider = role_provider or DefaultRoleProvider()
+        self.cache_provider = cache_provider or DefaultCacheProvider(default_ttl=300)
 
         # Initialize Enforcer
         if config:
@@ -64,10 +89,8 @@ class RBACService(BaseService):
             )
             self.enforcer = None
 
-        # Request-scoped caches for performance
-        self._permission_cache: dict[str, bool] = {}
+        # Legacy cache attributes for backward compatibility
         self._customer_cache: dict[int, list[int]] = {}
-        self._privilege_cache: dict[str, bool] = {}
         self._cache_timestamp = datetime.utcnow()
 
         # Initialize ownership registry with default provider
@@ -89,36 +112,40 @@ class RBACService(BaseService):
             logger.error("RBAC Enforcer not initialized. Denying access.")
             return False
 
+        # Get subject from provider
+        subject = self.subject_provider.get_subject(user)
+
         # Cache key for performance
         cache_key = f"{user.id}:{resource}:{action}"
-        if cache_key in self._permission_cache:
+        cached_result = self.cache_provider.get(cache_key)
+        if cached_result is not None:
             logger.debug(f"Permission cache hit: {cache_key}")
-            return self._permission_cache[cache_key]
+            return cached_result
 
         try:
-            # Check Casbin policy using user email as subject
-            result = self.enforcer.enforce(user.email, resource, action)
+            # Check Casbin policy using subject from provider
+            result = self.enforcer.enforce(subject, resource, action)
 
-            # Cache result with timestamp
-            self._permission_cache[cache_key] = result
+            # Cache result
+            self.cache_provider.set(cache_key, result)
 
             logger.debug(
-                f"Permission check: user={user.email}, resource={resource}, "
+                f"Permission check: user={subject}, resource={resource}, "
                 f"action={action}, result={result}, context={context}"
             )
 
             # Log authorization failures for security monitoring
             if not result:
                 logger.warning(
-                    f"Authorization denied: user={user.email}, resource={resource}, "
-                    f"action={action}, role={user.role}"
+                    f"Authorization denied: user={subject}, resource={resource}, "
+                    f"action={action}, role={self.role_provider.get_role(user)}"
                 )
 
             return result
 
         except Exception as e:
             logger.error(
-                f"Permission check failed: user={user.email}, resource={resource}, "
+                f"Permission check failed: user={subject}, resource={resource}, "
                 f"action={action}, error={e}"
             )
             # Fail closed
@@ -150,7 +177,7 @@ class RBACService(BaseService):
 
         accessible = []
 
-        if user.role == "superadmin":
+        if self.role_provider.has_role(user, "superadmin"):
             # Access all
             pass
         else:
@@ -171,16 +198,19 @@ class RBACService(BaseService):
         if not self.enforcer:
             return
 
+        # Get subject from provider
+        subject = self.subject_provider.get_subject(user)
+
         # Update user role in database
         user.role = role.value
         await self.commit()
 
         # Update Casbin role assignment
-        self.enforcer.remove_grouping_policy(user.email)
-        self.enforcer.add_grouping_policy(user.email, role.value)
+        self.enforcer.remove_grouping_policy(subject)
+        self.enforcer.add_grouping_policy(subject, role.value)
         self.clear_cache()
 
-        logger.info(f"Assigned role {role.value} to user {user.email}")
+        logger.info(f"Assigned role {role.value} to user {subject}")
 
     async def check_privilege(self, user: UserProtocol, privilege: Any) -> bool:
         """Check if user satisfies a privilege requirement."""
@@ -206,10 +236,10 @@ class RBACService(BaseService):
 
     def get_cache_stats(self) -> dict:
         """Get cache statistics."""
+        provider_stats = self.cache_provider.get_stats()
         return {
-            "permission_cache_size": len(self._permission_cache),
+            **provider_stats,
             "customer_cache_size": len(self._customer_cache),
-            "privilege_cache_size": len(self._privilege_cache),
             "cache_age_minutes": (datetime.utcnow() - self._cache_timestamp).total_seconds() / 60,
         }
 
@@ -220,7 +250,6 @@ class RBACService(BaseService):
 
     def clear_cache(self) -> None:
         """Clear permission and customer caches."""
-        self._permission_cache.clear()
+        self.cache_provider.clear()
         self._customer_cache.clear()
-        self._privilege_cache.clear()
         self._cache_timestamp = datetime.utcnow()

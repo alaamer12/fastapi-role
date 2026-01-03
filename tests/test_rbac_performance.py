@@ -215,7 +215,7 @@ class TestCachePerformanceOptimization:
 
         # Verify cache statistics
         stats = rbac_service.get_cache_stats()
-        assert stats["permission_cache_size"] == 12  # 3 resources * 4 actions
+        assert stats["size"] == 12  # 3 resources * 4 actions
 
         # Only initial requests should have hit the enforcer
         assert rbac_service.enforcer.enforce.call_count == 12
@@ -240,7 +240,7 @@ class TestCachePerformanceOptimization:
 
         # Test cache statistics
         stats = rbac_service.get_cache_stats()
-        assert stats["permission_cache_size"] == 1
+        assert stats["size"] == 1
         assert stats["cache_age_minutes"] >= 0
 
     @pytest.mark.asyncio
@@ -276,7 +276,7 @@ class TestCachePerformanceOptimization:
 
         # Verify cache contains entries for all users
         stats = rbac_service.get_cache_stats()
-        assert stats["permission_cache_size"] == 40  # 10 users * 2 resources * 2 actions
+        assert stats["size"] == 40  # 10 users * 2 resources * 2 actions
 
 
 class TestMemoryUsageOptimization:
@@ -314,19 +314,19 @@ class TestMemoryUsageOptimization:
         stats = rbac_service.get_cache_stats()
 
         # Should have reasonable cache size (100 users * 3 resources * 2 actions = 600 entries)
-        assert stats["permission_cache_size"] == 600
+        assert stats["size"] == 600
         assert stats["customer_cache_size"] <= 100  # At most one entry per user
 
         # Cache should be manageable in size
-        assert len(rbac_service._permission_cache) <= 1000
+        assert stats["size"] <= 1000
         assert len(rbac_service._customer_cache) <= 200
 
     @pytest.mark.asyncio
     async def test_cache_cleanup_performance(self, rbac_service):
         """Test cache cleanup performance."""
-        # Populate cache with entries
+        # Populate cache with entries using cache provider
         for i in range(1000):
-            rbac_service._permission_cache[f"key_{i}"] = True
+            rbac_service.cache_provider.set(f"key_{i}", True)
             if i % 10 == 0:
                 rbac_service._customer_cache[i] = [1, 2, 3]
 
@@ -340,5 +340,5 @@ class TestMemoryUsageOptimization:
 
         # Verify cache is empty
         stats = rbac_service.get_cache_stats()
-        assert stats["permission_cache_size"] == 0
+        assert stats["size"] == 0
         assert stats["customer_cache_size"] == 0

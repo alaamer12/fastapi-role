@@ -138,11 +138,12 @@ class TestResourceOwnership(TestRBACService):
     @pytest.mark.asyncio
     async def test_check_resource_ownership_customer_direct(self, rbac_service, user):
         """Test direct customer resource ownership."""
-        rbac_service.get_accessible_customers = AsyncMock(return_value=[1, 2, 3])
-
+        # With default ownership provider, non-superadmin users are denied
+        # unless a custom provider is registered for the resource type
         result = await rbac_service.check_resource_ownership(user, "customer", 2)
 
-        assert result is True
+        # Default provider denies non-superadmin
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_check_resource_ownership_customer_denied(self, rbac_service, user):
@@ -226,12 +227,13 @@ class TestCacheManagement(TestRBACService):
 
     def test_clear_cache(self, rbac_service):
         """Test clearing all caches."""
-        # Add some data to caches
-        rbac_service._permission_cache["test"] = True
+        # Add some data to caches via cache provider
+        rbac_service.cache_provider.set("test_key", True)
         rbac_service._customer_cache[1] = [1, 2, 3]
 
         rbac_service.clear_cache()
 
-        assert len(rbac_service._permission_cache) == 0
+        # Verify caches are cleared
+        assert rbac_service.cache_provider.get("test_key") is None
         assert len(rbac_service._customer_cache) == 0
 
