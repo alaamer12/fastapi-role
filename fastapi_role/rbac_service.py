@@ -10,7 +10,10 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
+from typing import Union
+
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from fastapi_role.base import BaseService
 from fastapi_role.core.ownership import OwnershipRegistry
@@ -49,7 +52,7 @@ class RBACService(BaseService):
 
     def __init__(
         self,
-        db: AsyncSession,
+        db: Union[AsyncSession, Session],
         config: Optional[CasbinConfig] = None,
         subject_provider: Optional[SubjectProvider] = None,
         role_provider: Optional[RoleProvider] = None,
@@ -58,7 +61,7 @@ class RBACService(BaseService):
         """Initializes the RBAC service.
 
         Args:
-            db (AsyncSession): Database session for operations.
+            db: Database session for operations (AsyncSession or Session).
             config (Optional[CasbinConfig]): CasbinConfig object containing
                 the security model.
             subject_provider: Optional custom subject provider.
@@ -194,7 +197,13 @@ class RBACService(BaseService):
         pass
 
     async def assign_role_to_user(self, user: UserProtocol, role: Enum) -> None:
-        """Assign role to user and update Casbin policies."""
+        """Assign role to user and update Casbin policies (async sessions only).
+        
+        For synchronous sessions, use assign_role_to_user_sync() instead.
+        
+        Raises:
+            RuntimeError: If called with a synchronous session
+        """
         if not self.enforcer:
             return
 
@@ -211,6 +220,32 @@ class RBACService(BaseService):
         self.clear_cache()
 
         logger.info(f"Assigned role {role.value} to user {subject}")
+
+    def assign_role_to_user_sync(self, user: UserProtocol, role: Enum) -> None:
+        """Assign role to user and update Casbin policies (sync sessions only).
+        
+        For asynchronous sessions, use await assign_role_to_user() instead.
+        
+        Raises:
+            RuntimeError: If called with an asynchronous session
+        """
+        if not self.enforcer:
+            return
+
+        # Get subject from provider
+        subject = self.subject_provider.get_subject(user)
+
+        # Update user role in database
+        user.role = role.value
+        self.commit_sync()
+
+        # Update Casbin role assignment
+        self.enforcer.remove_grouping_policy(subject)
+        self.enforcer.add_grouping_policy(subject, role.value)
+        self.clear_cache()
+
+        logger.info(f"Assigned role {role.value} to user {subject}")
+
 
     async def check_privilege(self, user: UserProtocol, privilege: Any) -> bool:
         """Check if user satisfies a privilege requirement."""
