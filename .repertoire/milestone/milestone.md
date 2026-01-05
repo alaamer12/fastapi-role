@@ -14,9 +14,10 @@
 4. [Phase 3: Configuration Architecture](#4-phase-3-configuration-architecture)
 5. [Phase 4: Extension Points & Plugin Architecture](#5-phase-4-extension-points--plugin-architecture)
 6. [Phase 5: Testing, Documentation & Package Finalization](#6-phase-5-testing-documentation--package-finalization)
-7. [Phase 6: CI/CD & Publishing](#7-phase-6-cicd--publishing)
-8. [Phase 7: Post-Release & Maintenance](#8-phase-7-post-release--maintenance)
-9. [Dependency Map](#9-dependency-map)
+7. [Phase 6: Integration Testing & Monorepo Transition](#7-phase-6-integration-testing--monorepo-transition)
+8. [Phase 7: CI/CD & Publishing](#8-phase-7-cicd--publishing)
+9. [Phase 8: Post-Release & Maintenance](#9-phase-8-post-release--maintenance)
+10. [Dependency Map](#10-dependency-map)
 
 ---
 
@@ -625,9 +626,48 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 
 ---
 
-## 7. [ ] Phase 6: CI/CD & Publishing
+## 7. [ ] Phase 6: Integration Testing & Monorepo Transition
 
-### [ ] Step 8.1: GitHub Actions Workflows
+### [ ] Step 6.1: Monorepo Transformation
+**Objective:** Convert the project into a workspace-based monorepo to support multiple packages.
+
+**Actions:**
+1. **Workspace Configuration:**
+   - Update `uv` configuration and `pyproject.toml` to reflect multiple packages.
+   - Define workspace members: `fastapi_role` (core library) and `test_fastapi` (testing package).
+2. **Update Core Package:**
+   - Ensure `fastapi_role` can be installed in editable mode within the workspace.
+
+### [ ] Step 6.2: Implement `test_fastapi` Package
+**Objective:** Create a comprehensive testing package simulating a real-world application.
+
+**Inside `test_fastapi` Structure:**
+- **Models:** At least two model files.
+- **Schemas:** At least two schema files.
+- **Database:** Setup using `sqlite3`.
+- **API:** At least five endpoints.
+- **Resources:** Required resources to support the endpoints.
+
+### [ ] Step 6.3: Apply RBAC to `test_fastapi`
+**Objective:** Apply Role-Based Access Control (RBAC) using the `fastapi_role` package on all endpoints.
+
+**Actions:**
+1. Integrate `fastapi_role` with the `test_fastapi` application.
+2. Decorate all five endpoints with appropriate RBAC requirements.
+
+### [ ] Step 6.4: Testing and Validation
+**Objective:** Ensure all code works as expected and fix issues.
+
+**Actions:**
+1. Ensure all code in the `test_fastapi` package works as expected.
+2. If it works, consider the `fastapi_role` package fully implemented.
+3. If there are issues, trace the source of the problem, fix it, and retry until everything works correctly.
+
+---
+
+## 8. [ ] Phase 7: CI/CD & Publishing
+
+### [ ] Step 7.1: GitHub Actions Workflows
 
 **Required Workflows:**
 
@@ -652,7 +692,7 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
    - Build documentation with MkDocs/Sphinx
    - Deploy to GitHub Pages or ReadTheDocs
 
-### [ ] Step 8.2: PyPI Publishing Process
+### [ ] Step 7.2: PyPI Publishing Process
 
 **Steps:**
 
@@ -671,7 +711,7 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
    - Verify with `twine check dist/*`
    - Upload with `twine upload dist/*` or GitHub Action
 
-### [ ] Step 8.3: Release Checklist
+### [ ] Step 7.3: Release Checklist
 
 **Pre-Release:**
 1. All tests passing on all Python versions
@@ -694,9 +734,9 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 
 ---
 
-## 8. [ ] Phase 7: Post-Release & Maintenance
+## 9. [ ] Phase 8: Post-Release & Maintenance
 
-### [ ] Step 10.1: Community Management
+### [ ] Step 8.1: Community Management
 
 **Channels:**
 
@@ -710,7 +750,7 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 - Feature request template
 - Security vulnerability reporting process
 
-### [ ] Step 10.2: Maintenance Schedule
+### [ ] Step 8.2: Maintenance Schedule
 
 **Regular Tasks:**
 
@@ -719,7 +759,7 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 3. **Quarterly:** Minor version releases with new features
 4. **Annually:** Major version consideration, deprecation review
 
-### [ ] Step 10.3: Deprecation Policy
+### [ ] Step 8.3: Deprecation Policy
 
 **Process:**
 
@@ -730,7 +770,7 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 
 ---
 
-## 9. Dependency Map
+## 10. Dependency Map
 
 ### Phase Dependencies
 
@@ -743,9 +783,11 @@ Phase 3 (Configuration) ─┬─→ Phase 4 (Extension Points)
                          │
                          └─→ Phase 5 (Testing, Docs & Package) ← Requires Phase 3+4
                                   ↓
-                              Phase 6 (CI/CD & Publishing) ← Requires stable package
+                              Phase 6 (Testing & Monorepo) ← Requires Phase 5
                                   ↓
-                              Phase 7 (Maintenance) ← Post-release
+                              Phase 7 (CI/CD & Publishing) ← Requires stable package
+                                  ↓
+                              Phase 8 (Maintenance) ← Post-release
 ```
 
 ### Estimated Timeline
@@ -757,10 +799,11 @@ Phase 3 (Configuration) ─┬─→ Phase 4 (Extension Points)
 | Phase 3 | 2-3 days | Phase 2 |
 | Phase 4 | 2-3 days | Phase 2 |
 | Phase 5 | 4-6 days | Phase 2, 3, 4 |
-| Phase 6 | 1-2 days | Phase 5 |
-| Phase 7 | Ongoing | Phase 6 |
+| Phase 6 | 3-4 days | Phase 5 |
+| Phase 7 | 1-2 days | Phase 6 |
+| Phase 8 | Ongoing | Phase 7 |
 
-**Total Estimate:** 13-21 days for initial release
+**Total Estimate:** 16-25 days for initial release
 
 ---
 
