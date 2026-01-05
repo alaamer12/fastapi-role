@@ -1,75 +1,21 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "fastapi-role"
+name = "fastapi-role-workspace"
 version = "0.1.0"
-description = "Role-Based Access Control (RBAC) library for FastAPI applications, powered by Casbin."
-readme = "README.md"
+description = "Monorepo workspace for fastapi-role library and integration tests"
 requires-python = ">=3.9"
-license = { text = "MIT" }
 authors = [
-    { name = "Amr M. Kayid", email = "amr.kayid@gmail.com" }
+    { name = "Alaamer", email = "ahmedmuhmmed239@gmail.com" }
 ]
-keywords = [
-    "fastapi",
-    "rbac",
-    "casbin",
-    "authorization",
-    "role-based-access-control",
-    "security"
-]
+license = { text = "MIT" }
+readme = "README.md"
 classifiers = [
+    "Private :: Do Not Upload",
     "Development Status :: 4 - Beta",
-    "Framework :: FastAPI",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Security",
-    "Topic :: Internet :: WWW/HTTP",
-    "Typing :: Typed",
-    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Build Tools",
 ]
 
-dependencies = [
-    "fastapi",
-    "casbin",
-    "sqlalchemy",
-    "pydantic",
-    "pydantic-settings",
-    "uvicorn",
-    "platformdirs",
-]
-
-[dependency-groups]
-dev = [
-    "pytest",
-    "pytest-asyncio",
-    "pytest-cov",
-    "pytest-xdist",           # Parallel test execution
-    "pytest-sugar",           # Better test output
-    "pytest-clarity",         # Better assertion diffs
-    "pytest-icdiff",          # Improved diff output
-    "pytest-emoji",           # Emoji test output
-    "ruff",
-    "mypy",
-    "httpx",
-    "hypothesis",
-]
-
-[project.urls]
-Homepage = "https://github.com/alaamer12/fastapi-role"
-Documentation = "https://github.com/alaamer12/fastapi-role#readme"
-Repository = "https://github.com/alaamer12/fastapi-role"
-Issues = "https://github.com/alaamer12/fastapi-role/issues"
-
-[tool.hatch.build.targets.wheel]
-packages = ["fastapi_role"]
-
+[tool.uv.workspace]
+members = ["fastapi_role", "test_fastapi"]
 
 [tool.ruff]
 line-length = 100
@@ -77,49 +23,30 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
+    "E", "W", "F", "I", "B", "C4", "UP",
 ]
 ignore = [
-    "E501",  # line too long (handled by formatter)
-    "B008",  # do not perform function calls in argument defaults
-    "W191",  # indentation contains tabs
-    "UP045", # Old types pattern
-    "UP007",
-    "UP035",
-    "B010",
-    "UP006",
+    "E501", "B008", "W191", "UP045", "UP007", "UP035", "B010", "UP006",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]  # unused imports in __init__.py
+"__init__.py" = ["F401"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["fastapi_role/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "-v",                           # Verbose output
-    "-l",                           # Show local variables in tracebacks
-    "-ra",                          # Show all test results summary
-    "--strict-markers",             # Strict marker checking
-    "-W", "default",                # Show warnings
-    "--tb=short",                   # Short traceback format
-    "--cov-report=term-missing",    # Terminal coverage with missing lines
-    # "--maxfail=5",                # Commented out - let CI control this
+    "-v", "-l", "-ra", "--strict-markers", "-W", "default", "--tb=short",
+    "--cov-report=term-missing",
 ]
 markers = [
-    "unit: Unit tests (fast, isolated)",
-    "integration: Integration tests (slower, full stack)",
+    "unit: Unit tests",
+    "integration: Integration tests",
     "slow: Slow tests",
-    "ci_cd_issue: Tests that have known issues in CI/CD environment but pass locally",
+    "ci_cd_issue: CI/CD issues",
 ]
 log_cli = false
 log_cli_level = "INFO"
@@ -130,8 +57,5 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
-
-# Enhanced error reporting
 junit_family = "xunit2"
-junit_logging = "all"
 junit_log_passing_tests = false

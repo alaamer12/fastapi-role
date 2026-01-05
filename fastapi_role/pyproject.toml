@@ -1,0 +1,114 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastapi-role"
+version = "0.1.0"
+description = "Role-Based Access Control (RBAC) library for FastAPI applications, powered by Casbin."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Amr M. Kayid", email = "amr.kayid@gmail.com" }
+]
+keywords = [
+    "fastapi",
+    "rbac",
+    "casbin",
+    "authorization",
+    "role-based-access-control",
+    "security"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "fastapi",
+    "casbin",
+    "sqlalchemy",
+    "pydantic",
+    "pydantic-settings",
+    "uvicorn",
+    "platformdirs",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-xdist",
+    "pytest-sugar",
+    "pytest-clarity",
+    "pytest-icdiff",
+    "pytest-emoji",
+    "ruff",
+    "mypy",
+    "httpx",
+    "hypothesis",
+]
+
+[project.urls]
+Homepage = "https://github.com/alaamer12/fastapi-role"
+Documentation = "https://github.com/alaamer12/fastapi-role#readme"
+Repository = "https://github.com/alaamer12/fastapi-role"
+Issues = "https://github.com/alaamer12/fastapi-role/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fastapi_role"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "C4", "UP",
+]
+ignore = [
+    "E501", "B008", "W191", "UP045", "UP007", "UP035", "B010", "UP006",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v", "-l", "-ra", "--strict-markers", "-W", "default", "--tb=short",
+    "--cov-report=term-missing",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests",
+    "ci_cd_issue: CI/CD issues",
+]
+log_cli = false
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+junit_family = "xunit2"
+junit_log_passing_tests = false
