@@ -1,4 +1,4 @@
-# FastAPI-RBAC: System Design Document
+# fastapi-role: System Design Document
 
 **Document Version:** 1.0  
 **Created:** 2026-01-01  
@@ -246,7 +246,7 @@ The target design removes all business coupling while preserving functionality.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              PyPI Package: fastapi-rbac                      │
+│                              PyPI Package: fastapi-role                      │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │                                                                        │  │
 │  │  ┌───────────────────────────────────────────────────────────────┐    │  │
@@ -951,7 +951,7 @@ For users migrating from the business-coupled version:
 
 ```
 Step 1: Install new package
-        pip install fastapi-rbac
+        pip install fastapi-role
 
 Step 2: Create role configuration
         Role = create_roles([...your roles...])

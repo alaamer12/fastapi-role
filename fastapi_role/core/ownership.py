@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Protocol
 
-from fastapi_role.protocols import UserProtocol
+from fastapi_role.protocols.user import UserProtocol
 
 
 class OwnershipProvider(Protocol):

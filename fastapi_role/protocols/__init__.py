@@ -1,3 +1,4 @@
+from fastapi_role.core.ownership import OwnershipProvider
 from fastapi_role.protocols.providers import (
     CacheProvider,
     RoleProvider,
@@ -10,4 +11,5 @@ __all__ = [
     "SubjectProvider",
     "RoleProvider",
     "CacheProvider",
+    "OwnershipProvider",
 ]

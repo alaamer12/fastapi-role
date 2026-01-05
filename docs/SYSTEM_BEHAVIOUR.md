@@ -1,6 +1,6 @@
-# FastAPI-RBAC System Behavior Guide
+# fastapi-role System Behavior Guide
 
-This document explains the behavior of the FastAPI-RBAC library, including how the provider architecture works, default behaviors, and important concepts that users need to understand.
+This document explains the behavior of the fastapi-role library, including how the provider architecture works, default behaviors, and important concepts that users need to understand.
 
 ---
 
@@ -21,7 +21,7 @@ This document explains the behavior of the FastAPI-RBAC library, including how t
 
 ### What is a Provider?
 
-A **provider** is a pluggable component that handles a specific aspect of the RBAC system. FastAPI-RBAC uses providers to make the library flexible and customizable without requiring you to modify core code.
+A **provider** is a pluggable component that handles a specific aspect of the RBAC system. fastapi-role uses providers to make the library flexible and customizable without requiring you to modify core code.
 
 **Available Providers:**
 - **SubjectProvider**: Determines what identifier to use for a user in Casbin policies

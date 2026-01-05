@@ -1,4 +1,4 @@
-# FastAPI-RBAC: Complete PyPI Package Transformation Milestone Guide
+# fastapi-role: Complete PyPI Package Transformation Milestone Guide
 
 **Document Version:** 1.0  
 **Created:** 2026-01-01  
@@ -516,13 +516,13 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 
 ---
 
-### [ ] Step 5.2: Create User Documentation
+### [x] Step 5.2: Create User Documentation
 
 **Objective:** Provide comprehensive documentation for library users.
 
 **Deliverables:**
 
-1. ✅ **System Behavior Guide** (`SYSTEM_BEHAVIOUR.md`):
+1. ✅ **System Behavior Guide** (`docs/SYSTEM_BEHAVIOUR.md`):
    - Provider architecture explanation
    - Default behaviors and customization
    - Authorization flow diagrams
@@ -532,25 +532,23 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
    - Security considerations
    - Best practices
 
-2. [ ] **Getting Started Guide** (`docs/getting-started.md`):
+2. [x] **Getting Started Guide** (`docs/getting-started.md`):
    - Installation instructions
    - Basic setup with minimal configuration
    - First protected endpoint example
    - Quick start tutorial
 
-3. [ ] **Configuration Reference** (`docs/configuration.md`):
+3. [x] **Configuration Reference** (`docs/configuration.md`):
    - All configuration options with descriptions
    - Environment variable mapping
    - File format specifications
    - Default values and examples
 
-4. [ ] **Architecture Overview** (`docs/architecture.md`):
+4. [x] **Architecture Overview** (`docs/architecture.md`):
    - Component interaction diagrams
    - Extension points overview
    - Request flow through authorization
    - Provider architecture details
-
----
 
 ### [ ] Step 5.3: Create Example Applications
 
@@ -581,75 +579,35 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
    - Per-tenant role configuration
    - Tenant-specific ownership rules
 
----
-
-### [ ] Step 5.4: Finalize Package Structure
+### [x] Step 5.4: Finalize Package Structure
 
 **Objective:** Prepare package for PyPI publishing.
 
 **Tasks:**
 
-1. [ ] **Update `pyproject.toml` Metadata:**
-   ```toml
-   [project]
-   name = "fastapi-rbac"
-   version = "0.1.0"
-   description = "Role-Based Access Control for FastAPI with Casbin"
-   keywords = ["fastapi", "rbac", "authorization", "casbin", "role-based-access-control"]
-   classifiers = [
-       "Development Status :: 4 - Beta",
-       "Framework :: FastAPI",
-       "Intended Audience :: Developers",
-       "License :: OSI Approved :: MIT License",
-       "Programming Language :: Python :: 3.9",
-       "Programming Language :: Python :: 3.10",
-       "Programming Language :: Python :: 3.11",
-       "Programming Language :: Python :: 3.12",
-   ]
-   dependencies = [
-       "casbin>=1.0",
-       "fastapi>=0.100.0",
-       "platformdirs>=3.0.0",
-   ]
-   
-   [project.optional-dependencies]
-   sqlalchemy = ["sqlalchemy>=2.0.0"]
-   redis = ["redis>=4.0.0"]
-   dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "black", "mypy"]
-   ```
+1. [x] **Update `pyproject.toml` Metadata:**
+   - Updated name to `fastapi-role`
+   - Added detailed classifiers and keywords
+   - Fixed author information
+   - Verified dependencies
 
-2. [ ] **Create/Update Package Files:**
-   - [ ] `README.md` - Project overview, quick start, features
-   - [ ] `LICENSE` - MIT or Apache 2.0 license
-   - [ ] `CHANGELOG.md` - Version history
-   - [ ] `CONTRIBUTING.md` - Contribution guidelines
-   - [ ] `.gitignore` - Ignore patterns
-   - [ ] `py.typed` - PEP 561 type marker
+2. [x] **Create/Update Package Files:**
+   - [x] `README.md` - Project overview, quick start, features
+   - [x] `LICENSE` - MIT license
+   - [x] `CHANGELOG.md` - Version history
+   - [x] `CONTRIBUTING.md` - Contribution guidelines
+   - [x] `.gitignore` - Ignore patterns
+   - [x] `py.typed` - PEP 561 type marker
 
-3. [ ] **Version Strategy:**
+3. [x] **Version Strategy:**
    - Use Semantic Versioning (SemVer)
    - Initial release: `0.1.0`
    - Stable release: `1.0.0` after feedback
 
-4. [ ] **Package Structure Verification:**
-   ```
-   fastapi-role/
-   ├── fastapi_role/          # Source code
-   │   ├── __init__.py
-   │   ├── core/
-   │   ├── protocols/
-   │   ├── providers/
-   │   ├── helpers/
-   │   └── ...
-   ├── tests/                 # Test suite
-   ├── examples/              # Example applications
-   ├── docs/                  # Documentation
-   ├── pyproject.toml
-   ├── README.md
-   ├── LICENSE
-   ├── CHANGELOG.md
-   └── SYSTEM_BEHAVIOUR.md
-   ```
+4. [x] **Package Structure Verification:**
+   - Build successful (`uv build`)
+   - Wheel and source distribution creation verified
+
 
 ---
 
@@ -727,7 +685,7 @@ The `OwnershipRegistry` pattern has been established and can be generalized for 
 1. Create git tag matching version
 2. Push tag to trigger release workflow
 3. Verify package published to PyPI
-4. Verify package installable: `pip install fastapi-rbac`
+4. Verify package installable: `pip install fastapi-role`
 
 **Post-Release:**
 1. Announce on relevant channels

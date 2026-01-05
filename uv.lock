@@ -380,7 +380,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fastapi-role"
+name = "fastapi-rbac"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

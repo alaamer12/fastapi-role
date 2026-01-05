@@ -1,4 +1,4 @@
-# FastAPI-RBAC: Rationale, Decisions, Constraints & Recommendations
+# fastapi-role: Rationale, Decisions, Constraints & Recommendations
 
 **Document Version:** 1.0  
 **Created:** 2026-01-01  

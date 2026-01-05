@@ -1,38 +1,75 @@
-# FastAPI-Role
+# fastapi-role
 
-A powerful and flexible Role-Based Access Control (RBAC) library for FastAPI applications, powered by Casbin.
+[![PyPI version](https://badge.fury.io/py/fastapi-role.svg)](https://badge.fury.io/py/fastapi-role)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Versions](https://img.shields.io/pypi/pyversions/fastapi-role.svg)](https://pypi.org/project/fastapi-role/)
+
+**fastapi-role** is a flexible, pluggable Role-Based Access Control library for FastAPI applications, powered by [Casbin](https://casbin.org/). It provides a robust decorator-based permission system, automatic resource ownership validation, and seamless integration with your existing user models and databases.
+
+> 🚀 **Transform your business logic into secure, role-aware operations in minutes.**
 
 ## Features
 
-- **Dynamic Role Creation**: Define roles at runtime using a factory pattern.
-- **Role Composition**: Combine roles using bitwise OR (`|`).
-- **Code-First Configuration**: Configure Casbin model and policies programmatically without external files.
-- **Advanced Decorators**: Use `@require` for complex authorization logic.
-- **Resource Ownership**: Validate if users own the resources they are accessing.
-- **Query Filtering**: Automatically filter SQLAlchemy queries based on user permissions.
+*   **🔒 Decorator-based Security**: Secure endpoints with `@require(roles=["admin"])` or `@require(permissions=["item", "read"])`.
+*   **🛠️ Framework Agnostic**: Works with *any* User model via a simple Protocol (duck-typing).
+*   **🧩 Pluggable Architecture**: Customize everything - Policy Storage, Role Extraction, Subject Definition, Permissions Caching.
+*   **🔄 Sync & Async Support**: Full support for both synchronous and asynchronous SQLAlchemy sessions.
+*   **📦 Zero-Config Defaults**: Works out of the box with sensible defaults (file-based default policies).
+*   **🧱 Ownership Validation**: Built-in support for resource ownership checks ("can this user edit *this* specific item?").
 
 ## Installation
 
 ```bash
-pip install fastapi-rbac
+pip install fastapi-role
 ```
 
 ## Quick Start
 
 ```python
-from fastapi_role import create_roles, CasbinConfig
+from fastapi import FastAPI, Depends
+from fastapi_role import RBACService, require
+from fastapi_role.core.config import CasbinConfig
+from pydantic import BaseModel
+from typing import Annotated
 
-# 1. Define roles
-Role = create_roles(["ADMIN", "USER", "SUPERADMIN"])
+# 1. Define your User (must have id, email, role)
+class User(BaseModel):
+    id: int = 1
+    email: str = "alice@admin.com"
+    role: str = "admin"
 
-# 2. Setup CasbinConfig
-config = CasbinConfig()
-config.add_policy(Role.ADMIN, "data", "read")
+app = FastAPI()
 
-# 3. Initialize RBACService
-# rbac_service = RBACService(db_session, config=config)
+# 2. Configure Service
+config = CasbinConfig(app_name="my_app")
+# Real apps should inject a DB session here
+def get_rbac():
+    return RBACService(db=None, config=config)
+
+# 3. Protect Endpoint
+@app.get("/secure")
+@require(roles=["admin"])
+async def secure_data(
+    service: Annotated[RBACService, Depends(get_rbac)]
+):
+    return {"status": "secure access granted"}
 ```
+
+## Documentation
+
+Full documentation is available in the `docs/` directory:
+
+- [Getting Started](docs/getting-started.md)
+- [Configuration Reference](docs/configuration.md)
+- [Architecture Overview](docs/architecture.md)
+
+## Examples
+
+Check the `examples/` directory for ready-to-run projects:
+- `examples/minimal`: Simple one-file application.
+- `examples/database`: SQLAlchemy integration with ownership checks.
+- `examples/file_based`: Custom policy file loading.
 
 ## License
 
-MIT
+This project is licensed under the terms of the MIT license.

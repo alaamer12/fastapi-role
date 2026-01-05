@@ -1,4 +1,4 @@
-# FastAPI-RBAC: System Requirements & Properties
+# fastapi-role: System Requirements & Properties
 
 **Document Version:** 1.0  
 **Created:** 2026-01-01  
@@ -525,6 +525,6 @@ These are statements that must always hold true, regardless of input or system s
 
 ---
 
-This requirements document provides the complete specification for the `fastapi-rbac` package transformation.
+This requirements document provides the complete specification for the `fastapi-role` package transformation.
 All requirements marked as "Not Met" or "Partially Met" represent gaps that must be addressed during the transformation.
 All properties marked as "MUST HOLD" are invariants that must be preserved throughout the transformation and verified by tests.

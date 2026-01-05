@@ -19,18 +19,18 @@ This guide shows you how to integrate the FastAPI RBAC library into your FastAPI
 ### From Source (Development)
 
 ```bash
-# Clone or copy the fastapi-rbac directory to your project
-cp -r fastapi-rbac /path/to/your/project/
+# Clone or copy the fastapi-role directory to your project
+cp -r fastapi-role /path/to/your/project/
 
 # Install dependencies
-cd fastapi-rbac
+cd fastapi-role
 pip install -e .
 ```
 
 ### From PyPI (When Published)
 
 ```bash
-pip install fastapi-rbac
+pip install fastapi-role
 ```
 
 ## Basic Setup

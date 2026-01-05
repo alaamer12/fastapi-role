@@ -182,7 +182,7 @@ def require(*requirements) -> Callable:
             for requirement_group in all_requirements:
                 try:
                     if await _evaluate_requirement_group(
-                            user, requirement_group, original_func, args, kwargs
+                        user, requirement_group, original_func, args, kwargs
                     ):
                         # At least one requirement group satisfied - allow access
                         logger.debug(f"Access granted to {user.email} for {original_func.__name__}")
@@ -275,13 +275,16 @@ async def _check_role_requirement(
     # Use has_role if available (protocol method)
     if hasattr(user, "has_role"):
         # If the user model implements has_role, delegate to it
-        # We need to handle the different types of role_req
         if isinstance(role_req, Enum):
             return user.has_role(role_req.value)
         elif isinstance(role_req, RoleComposition):
             return any(user.has_role(role.value) for role in role_req.roles)
         elif isinstance(role_req, list):
-            return any(user.has_role(role.value) for role in role_req)
+            # Handle list of Enums
+            for role in role_req:
+                if user.has_role(role.value):
+                    return True
+            return False
 
     # Fallback to direct attribute access check
     current_role = user.role  # String value
@@ -293,7 +296,11 @@ async def _check_role_requirement(
         return any(current_role == role.value for role in role_req.roles)
 
     elif isinstance(role_req, list):
-        return any(current_role == role.value for role in role_req)
+        # Handle list of Enums
+        for role in role_req:
+            if current_role == role.value:
+                return True
+        return False
 
     return False
 
