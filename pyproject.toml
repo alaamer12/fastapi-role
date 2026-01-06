@@ -14,8 +14,18 @@ classifiers = [
     "Topic :: Software Development :: Build Tools",
 ]
 
+dependencies = [
+    "fastapi_role",
+    "test_fastapi"
+]
+
 [tool.uv.workspace]
 members = ["fastapi_role", "test_fastapi"]
+
+
+[tool.uv.sources]
+fastapi-role = { workspace = true }
+test-fastapi = { workspace = true }
 
 [tool.ruff]
 line-length = 100

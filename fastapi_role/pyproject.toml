@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-role"
-version = "0.1.0"
+version = "0.1.0.dev1"
 description = "Role-Based Access Control (RBAC) library for FastAPI applications, powered by Casbin."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "Amr M. Kayid", email = "amr.kayid@gmail.com" }
+    { name = "Alaamer", email = "ahmedmuhmmed239@gmail.com" }
 ]
 keywords = [
     "fastapi",

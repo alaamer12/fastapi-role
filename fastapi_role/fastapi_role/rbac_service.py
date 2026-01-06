@@ -51,12 +51,12 @@ class RBACService(BaseService):
     """
 
     def __init__(
-        self,
-        db: Union[AsyncSession, Session],
-        config: Optional[CasbinConfig] = None,
-        subject_provider: Optional[SubjectProvider] = None,
-        role_provider: Optional[RoleProvider] = None,
-        cache_provider: Optional[CacheProvider] = None,
+            self,
+            db: Union[AsyncSession, Session],
+            config: Optional[CasbinConfig] = None,
+            subject_provider: Optional[SubjectProvider] = None,
+            role_provider: Optional[RoleProvider] = None,
+            cache_provider: Optional[CacheProvider] = None,
     ):
         """Initializes the RBAC service.
 
@@ -165,11 +165,11 @@ class RBACService(BaseService):
         # Try specific resource type first
         if self.ownership_registry.has_provider(resource_type):
             return await self.ownership_registry.check(user, resource_type, resource_id)
-        
+
         # Fall back to wildcard provider
         if self.ownership_registry.has_provider("*"):
             return await self.ownership_registry.check(user, "*", resource_id)
-        
+
         # No provider registered - deny by default (fail closed)
         return False
 
@@ -245,7 +245,6 @@ class RBACService(BaseService):
         self.clear_cache()
 
         logger.info(f"Assigned role {role.value} to user {subject}")
-
 
     async def check_privilege(self, user: UserProtocol, privilege: Any) -> bool:
         """Check if user satisfies a privilege requirement."""

@@ -24,25 +24,17 @@ from typing import Any, List, Optional, Union
 from fastapi import HTTPException
 
 from fastapi_role.core.composition import RoleComposition
-from fastapi_role.core.config import CasbinConfig
 
 # Import core components
-from fastapi_role.core.roles import RoleRegistry, create_roles
 from fastapi_role.protocols import UserProtocol
-from fastapi_role.rbac_service import RBACService
 
 # Forward reference for circular import handling if needed,
 # though we import RBACService above.
 
 __all__ = [
-    "create_roles",
-    "RoleRegistry",
-    "RoleComposition",
-    "CasbinConfig",
     "Permission",
     "ResourceOwnership",
     "Privilege",
-    "RBACService",
     "require",
 ]
 
