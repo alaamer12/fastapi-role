@@ -190,12 +190,6 @@ class RBACService(BaseService):
         self._customer_cache[user.id] = accessible
         return accessible
 
-    async def get_or_create_customer_for_user(self, user: UserProtocol) -> Any:
-        """Get or create customer for user."""
-        # Implementation remains same as original (omitted here to focus on RBAC specific changes)
-        # Assuming existing logic is preserved here.
-        pass
-
     async def assign_role_to_user(self, user: UserProtocol, role: Enum) -> None:
         """Assign role to user and update Casbin policies (async sessions only).
         
