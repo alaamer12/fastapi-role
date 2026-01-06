@@ -29,6 +29,7 @@ env/
 .env.local
 *.env
 .env.test
+.pypi-token
 # IDEs
 .vscode/
 .idea/
