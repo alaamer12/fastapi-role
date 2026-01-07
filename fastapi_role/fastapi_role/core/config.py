@@ -11,7 +11,7 @@ import hashlib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import casbin  # type: ignore
 import casbin.model  # type: ignore
@@ -83,24 +83,44 @@ class CasbinConfig:
 
     def __init__(
         self, 
-        app_name: str = "fastapi-role", 
+        app_name: str = "rbac-app", 
         filepath: Optional[Path] = None,
-        superadmin_role: Optional[str] = None
+        superadmin_role: Optional[str] = None,
+        model_content: Optional[str] = None,
+        model_definitions: Optional[Dict[str, Dict[str, str]]] = None,
+        base_directory: Optional[str] = None,
+        model_filename: str = "rbac_model.conf",
+        policy_filename: str = "rbac_policy.csv"
     ):
-        """Initializes the CasbinConfig with a default RBAC model.
+        """Initializes the CasbinConfig with configurable RBAC model.
         
         Args:
-            app_name: Application name used for hashing directory path. Defaults to "fastapi-role".
+            app_name: Application name used for hashing directory path. Defaults to "rbac-app".
             filepath: Custom file path for config files. If None, uses platformdirs with hashed app_name.
             superadmin_role: Optional role name that bypasses all access checks. If None, no superadmin bypass.
+            model_content: Optional custom model content as string. If None, uses default or model_definitions.
+            model_definitions: Optional custom model definitions dict. If None, uses default RBAC model.
+            base_directory: Optional base directory name for platformdirs. Defaults to app_name.
+            model_filename: Filename for model configuration. Defaults to "rbac_model.conf".
+            policy_filename: Filename for policy file. Defaults to "rbac_policy.csv".
         """
         self.app_name = app_name
+        self.base_directory = base_directory or app_name
+        self.model_filename = model_filename
+        self.policy_filename = policy_filename
         self.filepath = filepath if filepath else self._get_default_filepath()
         self.superadmin_role = superadmin_role
         self.model = casbin.model.Model()
         self.policies: List[Policy] = []
         self.grouping_policies: List[GroupingPolicy] = []
-        self._setup_default_model()
+        
+        # Setup model based on provided configuration
+        if model_content:
+            self._setup_model_from_content(model_content)
+        elif model_definitions:
+            self._setup_model_from_definitions(model_definitions)
+        else:
+            self._setup_default_model()
 
     def _setup_default_model(self) -> None:
         """Initializes a standard RBAC model definition.
@@ -108,12 +128,61 @@ class CasbinConfig:
         Sets up request, policy, role, effect, and matcher definitions
         conforming to a standard RBAC pattern.
         """
-        m = self.model
-        m.add_def("r", "r", "sub, obj, act")
-        m.add_def("p", "p", "sub, obj, act, eft")
-        m.add_def("g", "g", "_, _")
-        m.add_def("e", "e", "some(where (p.eft == allow)) && !some(where (p.eft == deny))")
-        m.add_def("m", "m", "g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && keyMatch2(r.act, p.act)")
+        default_definitions = {
+            "r": {"r": "sub, obj, act"},
+            "p": {"p": "sub, obj, act, eft"},
+            "g": {"g": "_, _"},
+            "e": {"e": "some(where (p.eft == allow)) && !some(where (p.eft == deny))"},
+            "m": {"m": "g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && keyMatch2(r.act, p.act)"}
+        }
+        self._setup_model_from_definitions(default_definitions)
+
+    def _setup_model_from_definitions(self, definitions: Dict[str, Dict[str, str]]) -> None:
+        """Setup model from definitions dictionary.
+        
+        Args:
+            definitions: Dictionary of section -> {key: value} mappings
+        """
+        for section, section_defs in definitions.items():
+            for key, value in section_defs.items():
+                self.model.add_def(section, key, value)
+
+    def _setup_model_from_content(self, content: str) -> None:
+        """Setup model from raw content string.
+        
+        Args:
+            content: Raw model content in Casbin format
+        """
+        # Parse the content and add definitions
+        lines = content.strip().split('\n')
+        current_section = None
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+                
+            if line.startswith('[') and line.endswith(']'):
+                # Extract section name (e.g., "request_definition" -> "r")
+                section_name = line[1:-1]
+                if section_name == "request_definition":
+                    current_section = "r"
+                elif section_name == "policy_definition":
+                    current_section = "p"
+                elif section_name == "role_definition":
+                    current_section = "g"
+                elif section_name == "policy_effect":
+                    current_section = "e"
+                elif section_name == "matchers":
+                    current_section = "m"
+                else:
+                    # Use first character for unknown sections
+                    current_section = section_name[0] if section_name else None
+                continue
+                
+            if current_section and '=' in line:
+                key, value = line.split('=', 1)
+                self.model.add_def(current_section, key.strip(), value.strip())
 
     def add_policy(
         self, subject: Union[str, Enum], resource: str, action: str, effect: str = "allow"
@@ -149,7 +218,7 @@ class CasbinConfig:
             Path: Directory path for config files based on hashed app_name.
         """
         app_hash = hashlib.md5(self.app_name.encode()).hexdigest()
-        return user_data_path("fastapi-role") / "roles" / app_hash
+        return user_data_path(self.base_directory) / "roles" / app_hash
     
     def _ensure_files_exist(self) -> None:
         """Ensure config directory and default files exist."""
@@ -160,7 +229,21 @@ class CasbinConfig:
         
         # Write default model file if missing
         if not model_path.exists():
-            model_content = """[request_definition]
+            model_content = self._get_default_model_content()
+            model_path.write_text(model_content, encoding="utf-8")
+        
+        # Write default policy file if missing
+        if not policy_path.exists():
+            policy_content = self._get_default_policy_content()
+            policy_path.write_text(policy_content, encoding="utf-8")
+
+    def _get_default_model_content(self) -> str:
+        """Get default model content.
+        
+        Returns:
+            str: Default model configuration content
+        """
+        return """[request_definition]
 r = sub, obj, act
 
 [policy_definition]
@@ -175,31 +258,33 @@ e = some(where (p.eft == allow)) && !some(where (p.eft == deny))
 [matchers]
 m = g(r.sub, p.sub) && keyMatch2(r.obj, p.obj) && keyMatch2(r.act, p.act)
 """
-            model_path.write_text(model_content, encoding="utf-8")
+
+    def _get_default_policy_content(self) -> str:
+        """Get default policy content.
         
-        # Write default policy file if missing
-        if not policy_path.exists():
-            policy_content = """# Default RBAC policies
+        Returns:
+            str: Default policy file content
+        """
+        return """# Default RBAC policies
 # Format: p, subject, object, action, effect
 # Example: p, admin, *, *, allow
 """
-            policy_path.write_text(policy_content, encoding="utf-8")
     
     def get_model_path(self) -> Path:
-        """Get path to rbac_model.conf file.
+        """Get path to model configuration file.
         
         Returns:
             Path: Full path to model configuration file.
         """
-        return self.filepath / "rbac_model.conf"
+        return self.filepath / self.model_filename
     
     def get_policy_path(self) -> Path:
-        """Get path to rbac_policy.csv file.
+        """Get path to policy file.
         
         Returns:
             Path: Full path to policy file.
         """
-        return self.filepath / "rbac_policy.csv"
+        return self.filepath / self.policy_filename
 
     def get_casbin_enforcer(self) -> casbin.Enforcer:
         """Constructs and returns a fully initialized Casbin Enforcer.

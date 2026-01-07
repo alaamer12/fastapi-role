@@ -6,6 +6,7 @@ including decorators, template integration, and testing utilities.
 from fastapi_role.core.config import CasbinConfig
 from fastapi_role.core.resource import ResourceRef, Permission as CorePermission, Privilege as CorePrivilege
 from fastapi_role.core.roles import create_roles, RoleRegistry
+from fastapi_role.providers import InMemoryDatabaseProvider, SQLAlchemyDatabaseProvider
 from fastapi_role.rbac import (
     Permission,
     Privilege,
@@ -40,4 +41,7 @@ __all__ = [
     "get_rbac_service", 
     "rbac_service_context",
     "RBACService",
+    # Database providers
+    "InMemoryDatabaseProvider",
+    "SQLAlchemyDatabaseProvider",
 ]

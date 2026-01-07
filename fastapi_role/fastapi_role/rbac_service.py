@@ -35,9 +35,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Global instance placeholder
-rbac_service = None
-
 
 class RBACService:
     """Service for RBAC operations using Casbin.
@@ -96,10 +93,6 @@ class RBACService:
         self.ownership_registry.register(
             "*", DefaultOwnershipProvider(superadmin_role=superadmin_role, default_allow=False)
         )
-
-        # Set global instance (naive approach for decorator access)
-        global rbac_service
-        rbac_service = self
 
     async def check_permission(
             self, user: UserProtocol, resource: str, action: str, context: Optional[dict] = None

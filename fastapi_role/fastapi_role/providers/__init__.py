@@ -5,6 +5,8 @@ This module provides default implementations for all provider protocols:
 - DefaultSubjectProvider: Extract Casbin subject from user
 - DefaultRoleProvider: Extract and validate user roles
 - DefaultCacheProvider: In-memory caching backend
+- InMemoryDatabaseProvider: Database-free operation
+- SQLAlchemyDatabaseProvider: SQLAlchemy integration
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Optional, Set
 
 from fastapi_role.protocols import UserProtocol
+from fastapi_role.providers.database import InMemoryDatabaseProvider, SQLAlchemyDatabaseProvider
 
 
 class DefaultOwnershipProvider:
@@ -215,3 +218,13 @@ class DefaultCacheProvider:
             "misses": self._misses,
             "hit_rate": hit_rate,
         }
+
+
+__all__ = [
+    "DefaultOwnershipProvider",
+    "DefaultSubjectProvider", 
+    "DefaultRoleProvider",
+    "DefaultCacheProvider",
+    "InMemoryDatabaseProvider",
+    "SQLAlchemyDatabaseProvider",
+]

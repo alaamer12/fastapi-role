@@ -458,26 +458,38 @@ class TestRequireDecorator:
     @pytest.mark.asyncio
     async def test_require_decorator_success(self, user):
         """Test require decorator with successful authorization."""
+        from fastapi_role.rbac_service import RBACService
+        from fastapi_role.core.config import CasbinConfig
+
+        # Create a test RBAC service
+        config = CasbinConfig(app_name="test")
+        rbac_service = RBACService(config=config)
 
         @require(Role.CUSTOMER)
-        async def test_function(user: User):
+        async def test_function(user: User, rbac_service: RBACService):
             return "success"
 
         with patch("fastapi_role.rbac._check_role_requirement", return_value=True):
-            result = await test_function(user)
+            result = await test_function(user, rbac_service)
             assert result == "success"
 
     @pytest.mark.asyncio
     async def test_require_decorator_failure(self, user):
         """Test require decorator with failed authorization."""
+        from fastapi_role.rbac_service import RBACService
+        from fastapi_role.core.config import CasbinConfig
+
+        # Create a test RBAC service
+        config = CasbinConfig(app_name="test")
+        rbac_service = RBACService(config=config)
 
         @require(Role.SALESMAN)
-        async def test_function(user: User):
+        async def test_function(user: User, rbac_service: RBACService):
             return "success"
 
         with patch("fastapi_role.rbac._check_role_requirement", return_value=False):
             with pytest.raises(HTTPException) as exc_info:
-                await test_function(user)
+                await test_function(user, rbac_service)
 
             assert exc_info.value.status_code == 403
             assert "Access denied" in exc_info.value.detail

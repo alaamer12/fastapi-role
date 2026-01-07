@@ -120,7 +120,6 @@ def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
     1. Explicit service parameter (rbac_service, rbac)
     2. Service registry lookup (set via set_rbac_service())
     3. Service-like object in positional arguments
-    4. Global fallback (for backward compatibility)
     
     Args:
         args: Function positional arguments
@@ -152,20 +151,11 @@ def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
     except ValueError:
         pass
     
-    # Pattern 4: Fallback to global import (backward compatibility)
-    try:
-        from fastapi_role.rbac_service import rbac_service
-        if rbac_service is not None and _is_rbac_service_like(rbac_service):
-            return rbac_service
-    except ImportError:
-        pass
-    
     raise ValueError(
-        "No RBAC service available. Please use one of these patterns:\n"
-        "1. Pass rbac_service as a parameter: func(..., rbac_service=service)\n"
-        "2. Register a service: set_rbac_service(service)\n"
-        "3. Pass service as positional argument\n"
-        "4. Ensure a global rbac_service is available"
+        "No RBAC service available. Please either:\n"
+        "1. Pass rbac_service as a parameter to your function\n"
+        "2. Register a service using set_rbac_service()\n"
+        "3. Pass service as positional argument"
     )
 
 

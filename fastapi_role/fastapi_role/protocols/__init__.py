@@ -1,4 +1,5 @@
 from fastapi_role.core.ownership import OwnershipProvider
+from fastapi_role.protocols.database import DatabaseProvider, SyncDatabaseProvider
 from fastapi_role.protocols.providers import (
     CacheProvider,
     RoleProvider,
@@ -12,4 +13,6 @@ __all__ = [
     "RoleProvider",
     "CacheProvider",
     "OwnershipProvider",
+    "DatabaseProvider",
+    "SyncDatabaseProvider",
 ]

@@ -17,9 +17,9 @@ class TestCasbinConfigPlatformdirs:
     """Test CasbinConfig platformdirs integration."""
 
     def test_default_app_name(self):
-        """Test default app_name is 'fastapi-role'."""
+        """Test default app_name is 'rbac-app'."""
         config = CasbinConfig()
-        assert config.app_name == "fastapi-role"
+        assert config.app_name == "rbac-app"
 
     def test_custom_app_name(self):
         """Test custom app_name."""
