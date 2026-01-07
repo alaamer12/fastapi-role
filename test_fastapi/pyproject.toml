@@ -11,6 +11,9 @@ dependencies = [
     "pydantic-settings",
     "uvicorn",
     "platformdirs",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "python-multipart",
 ]
 
 [dependency-groups]
