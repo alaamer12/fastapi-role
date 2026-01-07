@@ -6,8 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from fastapi_role.rbac import require
-from fastapi_role.core.resource import Permission, Privilege, ResourceOwnership
+from fastapi_role.rbac import require, Permission, Privilege, ResourceOwnership
 
 from ..database import get_db
 from ..auth import get_current_user

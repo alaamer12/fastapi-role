@@ -29,9 +29,8 @@ from fastapi_role import (
     require,
     set_rbac_service,
     ResourceRef,
-    Permission as CorePermission,
 )
-from fastapi_role.core.config import Policy
+from fastapi_role.rbac import Permission
 from fastapi_role.protocols import UserProtocol
 from fastapi_role.providers import DefaultSubjectProvider, DefaultRoleProvider
 
@@ -317,7 +316,7 @@ async def root():
 
 
 @app.get("/resources", response_model=List[ResourceResponse])
-@require(CorePermission("*", "read"))
+@require(Permission("*", "read"))
 async def list_resources(
     resource_type: Optional[str] = None,
     current_user: UserModel = Depends(get_current_user),
@@ -359,7 +358,7 @@ async def list_resources(
 
 
 @app.get("/resources/{resource_type}/{resource_id}", response_model=ResourceResponse)
-@require(CorePermission("*", "read"))
+@require(Permission("*", "read"))
 async def get_resource(
     resource_type: str,
     resource_id: int,
@@ -394,7 +393,7 @@ async def get_resource(
 
 
 @app.post("/resources/{resource_type}", response_model=ResourceResponse)
-@require(CorePermission("*", "create"))
+@require(Permission("*", "create"))
 async def create_resource(
     resource_type: str,
     title: str,
@@ -433,7 +432,7 @@ async def create_resource(
 
 
 @app.put("/resources/{resource_type}/{resource_id}", response_model=ResourceResponse)
-@require(CorePermission("*", "update"))
+@require(Permission("*", "update"))
 async def update_resource(
     resource_type: str,
     resource_id: int,
@@ -472,7 +471,7 @@ async def update_resource(
 
 
 @app.delete("/resources/{resource_type}/{resource_id}", response_model=MessageResponse)
-@require(CorePermission("*", "delete"))
+@require(Permission("*", "delete"))
 async def delete_resource(
     resource_type: str,
     resource_id: int,
@@ -502,7 +501,7 @@ async def delete_resource(
 # ============================================================================
 
 @app.get("/admin/users", response_model=List[UserModel])
-@require(CorePermission("user", "read"))
+@require(Permission("user", "read"))
 async def list_users(
     current_user: UserModel = Depends(get_current_user),
     rbac: RBACService = Depends(lambda: rbac_service)
@@ -517,7 +516,7 @@ async def list_users(
 
 
 @app.get("/admin/stats", response_model=Dict[str, Any])
-@require(CorePermission("system", "read"))
+@require(Permission("system", "read"))
 async def get_system_stats(
     current_user: UserModel = Depends(get_current_user),
     rbac: RBACService = Depends(lambda: rbac_service)

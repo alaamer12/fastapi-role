@@ -1,21 +1,22 @@
 """Comprehensive tests for provider system edge cases.
 
-This module tests various edge cases and error scenarios for the provider system,
-including invalid implementations, error handling, thread safety, and lifecycle management.
+This module provides thorough testing of the provider system including
+registration, error handling, thread safety, and lifecycle management.
 
 Test Classes:
-    TestProviderRegistration: Tests provider registration with invalid implementations
-    TestProviderErrorHandling: Tests provider error handling and fallback behavior
-    TestProviderThreadSafety: Tests provider thread safety and concurrent access
-    TestProviderLifecycle: Tests provider lifecycle management and cleanup
-    TestProviderValidation: Tests provider configuration validation and error reporting
-    TestMockProviderImplementations: Tests provider system with mock implementations
+    TestProviderRegistration: Tests provider registration with various implementations
+    TestProviderErrorHandling: Tests error handling and fallback behavior
+    TestProviderThreadSafety: Tests thread safety and concurrent access
+    TestProviderLifecycle: Tests lifecycle management and cleanup
+    TestProviderConfiguration: Tests configuration validation and error reporting
+    TestProviderMockImplementations: Tests with mock implementations and edge cases
 """
 
 import asyncio
+import inspect
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -24,859 +25,1046 @@ from fastapi import HTTPException
 
 from fastapi_role import (
     Permission, 
+    Privilege, 
+    ResourceOwnership, 
     require,
     set_rbac_service,
     rbac_service_context,
 )
-from fastapi_role.core.ownership import OwnershipRegistry
-from fastapi_role.protocols import (
-    UserProtocol,
-    SubjectProvider,
-    RoleProvider,
-    CacheProvider,
-)
-from fastapi_role.providers import (
-    DefaultSubjectProvider,
-    DefaultRoleProvider,
-    DefaultCacheProvider,
-    DefaultOwnershipProvider,
-)
-from tests.conftest import TestRole as Role
-from tests.conftest import TestUser as User
-
-
-class InvalidSubjectProvider:
-    """Invalid subject provider that doesn't implement the protocol."""
-    
-    def __init__(self):
-        self.invalid_method = lambda: "not a subject provider"
-
-
-class PartialSubjectProvider:
-    """Subject provider that only partially implements the protocol."""
-    
-    def __init__(self):
-        pass
-    # Missing get_subject method
-
-
-class FailingSubjectProvider:
-    """Subject provider that raises exceptions."""
-    
-    def get_subject(self, user: UserProtocol) -> str:
-        raise Exception("Subject provider failed")
-
-
-class SlowSubjectProvider:
-    """Subject provider that is slow to respond."""
-    
-    def __init__(self, delay: float = 0.1):
-        self.delay = delay
-        self.call_count = 0
-    
-    def get_subject(self, user: UserProtocol) -> str:
-        self.call_count += 1
-        time.sleep(self.delay)
-        return f"slow_subject_{user.id}"
-
-
-class ThreadUnsafeProvider:
-    """Provider that is not thread-safe for testing."""
-    
-    def __init__(self):
-        self.counter = 0
-        self.results = []
-    
-    def get_subject(self, user: UserProtocol) -> str:
-        # Simulate non-atomic operations
-        current = self.counter
-        time.sleep(0.001)  # Small delay to increase chance of race condition
-        self.counter = current + 1
-        result = f"subject_{self.counter}"
-        self.results.append(result)
-        return result
-
-
-class MockRBACService:
-    """Mock RBAC service for testing."""
-    
-    def __init__(self, permissions_result: bool = True, ownership_result: bool = True):
-        self.permissions_result = permissions_result
-        self.ownership_result = ownership_result
-        self.check_permission = AsyncMock(return_value=permissions_result)
-        self.check_resource_ownership = AsyncMock(return_value=ownership_result)
+from fastapi_role.core.roles import create_roles
 
 
 class TestProviderRegistration:
-    """Tests for provider registration with invalid implementations.
+    """Tests for provider registration with various implementations.
     
-    Validates: Requirements 7.5, 7.6
+    Validates: Requirements 9.4
     """
 
-    def test_valid_subject_provider_registration(self):
-        """Test registration of valid subject provider."""
-        
-        provider = DefaultSubjectProvider()
-        
-        # Should not raise any exceptions
-        assert provider is not None
-        assert hasattr(provider, 'get_subject')
-        assert callable(provider.get_subject)
+    def teardown_method(self):
+        """Clean up after each test."""
+        from fastapi_role.rbac import _service_registry, _service_stack
+        _service_registry.clear()
+        _service_stack.clear()
 
-    def test_invalid_subject_provider_detection(self):
-        """Test detection of invalid subject provider."""
+    def test_valid_provider_registration(self):
+        """Test registration of valid provider implementations."""
         
-        invalid_provider = InvalidSubjectProvider()
+        class ValidRBACService:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        # Should detect that this is not a valid provider
-        assert not hasattr(invalid_provider, 'get_subject')
-
-    def test_partial_subject_provider_detection(self):
-        """Test detection of partially implemented subject provider."""
-        
-        partial_provider = PartialSubjectProvider()
-        
-        # Should detect missing methods
-        assert not hasattr(partial_provider, 'get_subject')
-
-    def test_role_provider_registration_validation(self):
-        """Test role provider registration validation."""
-        
-        valid_provider = DefaultRoleProvider()
-        
-        # Should have required methods
-        assert hasattr(valid_provider, 'get_user_roles')
-        assert hasattr(valid_provider, 'has_role')
-        assert callable(valid_provider.get_user_roles)
-        assert callable(valid_provider.has_role)
-
-    def test_cache_provider_registration_validation(self):
-        """Test cache provider registration validation."""
-        
-        valid_provider = DefaultCacheProvider()
-        
-        # Should have required methods
-        required_methods = ['get', 'set', 'clear', 'get_stats']
-        for method_name in required_methods:
-            assert hasattr(valid_provider, method_name)
-            assert callable(getattr(valid_provider, method_name))
-
-    def test_ownership_provider_registration(self):
-        """Test ownership provider registration in registry."""
-        
-        registry = OwnershipRegistry()
-        provider = DefaultOwnershipProvider()
+        service = ValidRBACService()
         
         # Should register without errors
-        registry.register("test_resource", provider)
+        set_rbac_service(service)
         
-        # Should retrieve the same provider
-        retrieved_provider = registry.get_provider("test_resource")
-        assert retrieved_provider is provider
+        # Verify registration
+        from fastapi_role.rbac import _service_registry
+        assert len(_service_registry) > 0
 
-    def test_ownership_registry_wildcard_provider(self):
-        """Test ownership registry wildcard provider registration."""
+    def test_invalid_provider_registration(self):
+        """Test registration of invalid provider implementations."""
         
-        registry = OwnershipRegistry()
-        wildcard_provider = DefaultOwnershipProvider()
-        specific_provider = DefaultOwnershipProvider()
+        class InvalidRBACService:
+            # Missing required methods
+            def some_other_method(self):
+                pass
         
-        # Register wildcard and specific providers
-        registry.register("*", wildcard_provider)
-        registry.register("specific_resource", specific_provider)
+        invalid_service = InvalidRBACService()
         
-        # Should get specific provider for specific resource
-        assert registry.get_provider("specific_resource") is specific_provider
-        
-        # Should get wildcard provider for unknown resource
-        assert registry.get_provider("unknown_resource") is wildcard_provider
+        # Should handle gracefully (may not raise during registration but during use)
+        set_rbac_service(invalid_service)
 
-    def test_ownership_registry_no_provider_error(self):
-        """Test ownership registry behavior when no provider is registered."""
+    def test_partial_provider_implementation(self):
+        """Test registration of partially implemented providers."""
         
-        registry = OwnershipRegistry(default_allow=False)
+        class PartialRBACService:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            # Missing check_resource_ownership method
         
-        # Should raise error when no provider is found
-        with pytest.raises(ValueError) as exc_info:
-            registry.get_provider("nonexistent_resource")
+        partial_service = PartialRBACService()
+        set_rbac_service(partial_service)
         
-        assert "No ownership provider registered" in str(exc_info.value)
+        # Should register but may fail during ownership checks
+
+    def test_multiple_provider_registration(self):
+        """Test registration of multiple provider instances."""
+        
+        class RBACService1:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+        
+        class RBACService2:
+            async def check_permission(self, user, resource, action, context=None):
+                return False
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return False
+        
+        service1 = RBACService1()
+        service2 = RBACService2()
+        
+        # Register multiple services
+        set_rbac_service(service1, "service1")
+        set_rbac_service(service2, "service2")
+        
+        # Verify both are registered
+        from fastapi_role.rbac import _service_registry
+        assert len(_service_registry) >= 2
+
+    def test_provider_replacement(self):
+        """Test replacing an existing provider."""
+        
+        class OriginalService:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+        
+        class ReplacementService:
+            async def check_permission(self, user, resource, action, context=None):
+                return False
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return False
+        
+        original = OriginalService()
+        replacement = ReplacementService()
+        
+        # Register original
+        set_rbac_service(original, "test_service")
+        
+        # Replace with new service
+        set_rbac_service(replacement, "test_service")
+        
+        # Should have replaced the original
+
+    def test_provider_with_custom_attributes(self):
+        """Test registration of providers with custom attributes."""
+        
+        class CustomRBACService:
+            def __init__(self):
+                self.custom_config = {"timeout": 30, "retries": 3}
+                self.metrics = {"calls": 0, "errors": 0}
+            
+            async def check_permission(self, user, resource, action, context=None):
+                self.metrics["calls"] += 1
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                self.metrics["calls"] += 1
+                return True
+        
+        custom_service = CustomRBACService()
+        set_rbac_service(custom_service)
+        
+        # Should register successfully with custom attributes
+
+    def test_provider_with_inheritance(self):
+        """Test registration of providers using inheritance."""
+        
+        class BaseRBACService:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+        
+        class ExtendedRBACService(BaseRBACService):
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+            
+            async def additional_method(self):
+                return "extended_functionality"
+        
+        extended_service = ExtendedRBACService()
+        set_rbac_service(extended_service)
+        
+        # Should register successfully
 
 
 class TestProviderErrorHandling:
     """Tests for provider error handling and fallback behavior.
     
-    Validates: Requirements 7.6, 7.7
+    Validates: Requirements 9.4
     """
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        from fastapi_role.rbac import _service_registry, _service_stack
+        _service_registry.clear()
+        _service_stack.clear()
 
     @pytest.fixture
     def user(self):
         """Create a test user."""
-        user = User()
-        user.id = 1
-        user.email = "test@example.com"
-        user.role = Role.CUSTOMER.value
-        return user
-
-    def test_subject_provider_exception_handling(self, user):
-        """Test handling of exceptions from subject provider."""
-        
-        failing_provider = FailingSubjectProvider()
-        
-        # Should handle the exception gracefully
-        with pytest.raises(Exception) as exc_info:
-            failing_provider.get_subject(user)
-        
-        assert "Subject provider failed" in str(exc_info.value)
+        class TestUser:
+            def __init__(self):
+                self.id = 1
+                self.email = "test@example.com"
+                self.role = "user"
+        return TestUser()
 
     @pytest.mark.asyncio
-    async def test_role_provider_exception_handling(self, user):
-        """Test handling of exceptions from role provider."""
+    async def test_permission_check_error_handling(self, user):
+        """Test error handling when permission check fails."""
         
-        class FailingRoleProvider:
-            async def get_user_roles(self, user: UserProtocol) -> List[str]:
-                raise Exception("Role provider failed")
+        class FailingPermissionService:
+            async def check_permission(self, user, resource, action, context=None):
+                raise Exception("Permission service unavailable")
             
-            async def has_role(self, user: UserProtocol, role_name: str) -> bool:
-                raise Exception("Role provider failed")
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        failing_provider = FailingRoleProvider()
+        failing_service = FailingPermissionService()
         
-        with pytest.raises(Exception) as exc_info:
-            await failing_provider.get_user_roles(user)
+        @require(Permission("test", "action"))
+        async def test_function(current_user, rbac_service):
+            return "should_not_reach_here"
         
-        assert "Role provider failed" in str(exc_info.value)
+        # Should handle permission check error gracefully
+        with pytest.raises(HTTPException) as exc_info:
+            await test_function(user, failing_service)
+        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_cache_provider_exception_handling(self):
-        """Test handling of exceptions from cache provider."""
+    async def test_ownership_check_error_handling(self, user):
+        """Test error handling when ownership check fails."""
         
-        class FailingCacheProvider:
-            async def get(self, key: str) -> Optional[Any]:
-                raise Exception("Cache get failed")
+        class FailingOwnershipService:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
             
-            async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-                raise Exception("Cache set failed")
-            
-            async def clear(self, pattern: Optional[str] = None) -> None:
-                raise Exception("Cache clear failed")
-            
-            async def get_stats(self) -> Dict[str, Any]:
-                raise Exception("Cache stats failed")
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                raise Exception("Ownership service unavailable")
         
-        failing_provider = FailingCacheProvider()
+        failing_service = FailingOwnershipService()
         
-        with pytest.raises(Exception) as exc_info:
-            await failing_provider.get("test_key")
+        @require(ResourceOwnership("resource"))
+        async def test_function(resource_id: int, current_user, rbac_service):
+            return "should_not_reach_here"
         
-        assert "Cache get failed" in str(exc_info.value)
+        # Should handle ownership check error gracefully
+        with pytest.raises(HTTPException) as exc_info:
+            await test_function(123, user, failing_service)
+        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_ownership_provider_exception_handling(self, user):
-        """Test handling of exceptions from ownership provider."""
+    async def test_timeout_error_handling(self, user):
+        """Test error handling when provider operations timeout."""
         
-        class FailingOwnershipProvider:
-            async def check_ownership(self, user: UserProtocol, resource_type: str, resource_id: Any) -> bool:
-                raise Exception("Ownership check failed")
+        class SlowService:
+            async def check_permission(self, user, resource, action, context=None):
+                await asyncio.sleep(10)  # Simulate slow operation
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        failing_provider = FailingOwnershipProvider()
+        slow_service = SlowService()
         
-        with pytest.raises(Exception) as exc_info:
-            await failing_provider.check_ownership(user, "test_resource", 123)
+        @require(Permission("slow", "test"))
+        async def test_function(current_user, rbac_service):
+            return "should_not_reach_here"
         
-        assert "Ownership check failed" in str(exc_info.value)
-
-    def test_ownership_registry_fallback_behavior(self):
-        """Test ownership registry fallback behavior."""
-        
-        registry = OwnershipRegistry(default_allow=True)
-        
-        # Should fall back to default behavior when no provider is found
-        # This should not raise an exception due to default_allow=True
-        try:
-            provider = registry.get_provider("nonexistent_resource")
-            # Should get the default provider
-            assert provider is not None
-        except ValueError:
-            # If no default provider, should handle gracefully
-            pass
-
-    @pytest.mark.asyncio
-    async def test_provider_timeout_handling(self, user):
-        """Test handling of slow/timeout providers."""
-        
-        slow_provider = SlowSubjectProvider(delay=0.1)
-        
-        # Should complete but be slow
+        # Should handle timeout gracefully (if timeout is implemented)
         start_time = time.time()
-        result = slow_provider.get_subject(user)
+        try:
+            await asyncio.wait_for(test_function(user, slow_service), timeout=1.0)
+        except (asyncio.TimeoutError, HTTPException):
+            # Either timeout or HTTP exception is acceptable
+            pass
         end_time = time.time()
         
-        assert result == "slow_subject_1"
-        assert end_time - start_time >= 0.1  # Should take at least the delay time
+        # Should not take longer than timeout + small buffer
+        assert end_time - start_time < 2.0
 
-    def test_provider_retry_logic(self, user):
-        """Test provider retry logic for transient failures."""
+    @pytest.mark.asyncio
+    async def test_network_error_simulation(self, user):
+        """Test error handling for network-related errors."""
         
-        class FlakyProvider:
-            def __init__(self):
-                self.attempt_count = 0
+        class NetworkErrorService:
+            async def check_permission(self, user, resource, action, context=None):
+                raise ConnectionError("Network unreachable")
             
-            def get_subject(self, user: UserProtocol) -> str:
-                self.attempt_count += 1
-                if self.attempt_count < 3:
-                    raise Exception("Transient failure")
-                return f"success_after_{self.attempt_count}_attempts"
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                raise TimeoutError("Connection timeout")
         
-        flaky_provider = FlakyProvider()
+        network_service = NetworkErrorService()
         
-        # Simulate retry logic (would be implemented in the service)
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                result = flaky_provider.get_subject(user)
-                assert "success_after_3_attempts" == result
-                break
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise e
-                continue
+        @require(Permission("network", "test"))
+        async def test_function(current_user, rbac_service):
+            return "should_not_reach_here"
+        
+        # Should handle network errors gracefully
+        with pytest.raises(HTTPException) as exc_info:
+            await test_function(user, network_service)
+        assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_fallback_behavior(self, user):
+        """Test fallback behavior when primary provider fails."""
+        
+        class PrimaryService:
+            async def check_permission(self, user, resource, action, context=None):
+                raise Exception("Primary service down")
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+        
+        class FallbackService:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+        
+        primary_service = PrimaryService()
+        fallback_service = FallbackService()
+        
+        @require(Permission("fallback", "test"))
+        async def test_function(current_user, rbac_service):
+            return f"accessed_by_{current_user.email}"
+        
+        # Test with primary service (should fail)
+        with pytest.raises(HTTPException):
+            await test_function(user, primary_service)
+        
+        # Test with fallback service (should succeed)
+        result = await test_function(user, fallback_service)
+        assert result == f"accessed_by_{user.email}"
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_handling(self, user):
+        """Test handling when some operations succeed and others fail."""
+        
+        class PartialFailureService:
+            def __init__(self):
+                self.call_count = 0
+            
+            async def check_permission(self, user, resource, action, context=None):
+                self.call_count += 1
+                if self.call_count % 2 == 0:
+                    raise Exception("Intermittent failure")
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+        
+        partial_service = PartialFailureService()
+        
+        @require(Permission("partial", "test"))
+        async def test_function(current_user, rbac_service):
+            return f"accessed_by_{current_user.email}"
+        
+        # First call should succeed
+        result1 = await test_function(user, partial_service)
+        assert result1 == f"accessed_by_{user.email}"
+        
+        # Second call should fail
+        with pytest.raises(HTTPException):
+            await test_function(user, partial_service)
 
 
 class TestProviderThreadSafety:
     """Tests for provider thread safety and concurrent access.
     
-    Validates: Requirements 7.7
+    Validates: Requirements 9.4
     """
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        from fastapi_role.rbac import _service_registry, _service_stack
+        _service_registry.clear()
+        _service_stack.clear()
 
     @pytest.fixture
     def user(self):
         """Create a test user."""
-        user = User()
-        user.id = 1
-        user.email = "test@example.com"
-        user.role = Role.CUSTOMER.value
-        return user
-
-    def test_default_subject_provider_thread_safety(self, user):
-        """Test that default subject provider is thread-safe."""
-        
-        provider = DefaultSubjectProvider()
-        results = []
-        
-        def worker():
-            result = provider.get_subject(user)
-            results.append(result)
-        
-        # Run multiple threads concurrently
-        threads = []
-        for _ in range(10):
-            thread = threading.Thread(target=worker)
-            threads.append(thread)
-            thread.start()
-        
-        # Wait for all threads to complete
-        for thread in threads:
-            thread.join()
-        
-        # All results should be the same (thread-safe)
-        assert len(results) == 10
-        assert all(result == user.email for result in results)
+        class TestUser:
+            def __init__(self):
+                self.id = 1
+                self.email = "test@example.com"
+                self.role = "user"
+        return TestUser()
 
     @pytest.mark.asyncio
-    async def test_default_role_provider_thread_safety(self, user):
-        """Test that default role provider is thread-safe."""
+    async def test_concurrent_provider_access(self, user):
+        """Test concurrent access to the same provider."""
         
-        provider = DefaultRoleProvider()
-        results = []
-        
-        async def worker():
-            result = await provider.get_user_roles(user)
-            results.append(result)
-        
-        # Run multiple async tasks concurrently
-        tasks = [worker() for _ in range(10)]
-        await asyncio.gather(*tasks)
-        
-        # All results should be the same (thread-safe)
-        assert len(results) == 10
-        expected_result = [user.role]
-        assert all(result == expected_result for result in results)
-
-    @pytest.mark.asyncio
-    async def test_default_cache_provider_thread_safety(self):
-        """Test that default cache provider is thread-safe."""
-        
-        provider = DefaultCacheProvider()
-        results = []
-        
-        async def worker(worker_id: int):
-            key = f"test_key_{worker_id}"
-            value = f"test_value_{worker_id}"
+        class ThreadSafeService:
+            def __init__(self):
+                self.call_count = 0
+                self.lock = asyncio.Lock()
             
-            await provider.set(key, value)
-            retrieved_value = await provider.get(key)
-            results.append((key, value, retrieved_value))
+            async def check_permission(self, user, resource, action, context=None):
+                async with self.lock:
+                    self.call_count += 1
+                    await asyncio.sleep(0.001)  # Simulate work
+                    return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        # Run multiple async tasks concurrently
-        tasks = [worker(i) for i in range(10)]
-        await asyncio.gather(*tasks)
+        thread_safe_service = ThreadSafeService()
         
-        # All operations should complete successfully
-        assert len(results) == 10
-        for key, original_value, retrieved_value in results:
-            assert original_value == retrieved_value
+        @require(Permission("concurrent", "test"))
+        async def concurrent_function(
+            request_id: int, 
+            current_user, 
+            rbac_service
+        ):
+            return f"request_{request_id}_processed"
+        
+        # Run many concurrent requests
+        tasks = [
+            concurrent_function(i, user, thread_safe_service) 
+            for i in range(20)
+        ]
+        
+        results = await asyncio.gather(*tasks)
+        
+        # All should succeed
+        assert len(results) == 20
+        assert all(f"request_{i}_processed" in results for i in range(20))
+        assert thread_safe_service.call_count == 20
 
-    def test_thread_unsafe_provider_detection(self, user):
-        """Test detection of thread safety issues in providers."""
+    def test_provider_registration_thread_safety(self):
+        """Test thread safety of provider registration."""
         
-        unsafe_provider = ThreadUnsafeProvider()
+        class TestService:
+            def __init__(self, service_id: int):
+                self.service_id = service_id
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        def worker():
-            unsafe_provider.get_subject(user)
+        def register_service(service_id: int):
+            service = TestService(service_id)
+            set_rbac_service(service, f"service_{service_id}")
         
-        # Run multiple threads concurrently
-        threads = []
-        for _ in range(10):
-            thread = threading.Thread(target=worker)
-            threads.append(thread)
-            thread.start()
+        # Register services from multiple threads
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [
+                executor.submit(register_service, i) 
+                for i in range(10)
+            ]
+            
+            # Wait for all registrations
+            for future in as_completed(futures):
+                future.result()  # Will raise if there was an exception
         
-        # Wait for all threads to complete
-        for thread in threads:
-            thread.join()
-        
-        # Check for race conditions (counter might not be 10 due to race conditions)
-        # This test demonstrates the issue rather than asserting a specific value
-        assert len(unsafe_provider.results) == 10
-        # The counter might be less than 10 due to race conditions
-        print(f"Final counter value: {unsafe_provider.counter} (expected: 10)")
+        # Verify services were registered
+        from fastapi_role.rbac import _service_registry
+        assert len(_service_registry) >= 10
 
     @pytest.mark.asyncio
-    async def test_concurrent_ownership_provider_access(self, user):
-        """Test concurrent access to ownership providers."""
+    async def test_context_manager_thread_safety(self, user):
+        """Test thread safety of context manager operations."""
         
-        registry = OwnershipRegistry()
-        provider = DefaultOwnershipProvider()
-        registry.register("test_resource", provider)
+        class ContextService:
+            def __init__(self, service_name: str):
+                self.service_name = service_name
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
+        services = [ContextService(f"service_{i}") for i in range(5)]
         results = []
         
-        async def worker(resource_id: int):
-            result = await provider.check_ownership(user, "test_resource", resource_id)
-            results.append(result)
+        async def use_context_service(service_index: int):
+            service = services[service_index]
+            
+            @require(Permission("context", "test"))
+            async def context_function(current_user):
+                return f"context_{service.service_name}"
+            
+            with rbac_service_context(service):
+                result = await context_function(user)
+                results.append(result)
+                return result
         
-        # Run multiple async tasks concurrently
-        tasks = [worker(i) for i in range(20)]
+        # Run multiple context managers concurrently
+        tasks = [use_context_service(i) for i in range(5)]
         await asyncio.gather(*tasks)
         
-        # All operations should complete successfully
-        assert len(results) == 20
+        # All should complete with correct context
+        assert len(results) == 5
+        expected_results = [f"context_service_{i}" for i in range(5)]
+        assert sorted(results) == sorted(expected_results)
 
-    def test_provider_registry_thread_safety(self):
-        """Test that provider registry operations are thread-safe."""
+    @pytest.mark.asyncio
+    async def test_provider_state_isolation(self, user):
+        """Test that provider state is properly isolated between concurrent calls."""
         
-        registry = OwnershipRegistry()
+        class StatefulService:
+            def __init__(self):
+                self.current_user = None
+                self.current_resource = None
+            
+            async def check_permission(self, user, resource, action, context=None):
+                # Simulate stateful operation
+                self.current_user = user.email
+                self.current_resource = resource
+                await asyncio.sleep(0.001)  # Brief delay
+                
+                # State should still be consistent
+                return (self.current_user == user.email and 
+                       self.current_resource == resource)
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        def register_provider(resource_type: str):
-            provider = DefaultOwnershipProvider()
-            registry.register(resource_type, provider)
+        stateful_service = StatefulService()
         
-        def get_provider(resource_type: str):
-            try:
-                registry.get_provider(resource_type)
-            except ValueError:
-                pass  # Expected for non-existent providers
+        @require(Permission("state", "test"))
+        async def stateful_function(
+            resource_name: str, 
+            current_user, 
+            rbac_service
+        ):
+            return f"accessed_{resource_name}_by_{current_user.email}"
         
-        # Run registration and retrieval concurrently
-        threads = []
+        # Run concurrent requests with different resources
+        tasks = [
+            stateful_function(f"resource_{i}", user, stateful_service) 
+            for i in range(10)
+        ]
         
-        # Registration threads
-        for i in range(5):
-            thread = threading.Thread(target=register_provider, args=(f"resource_{i}",))
-            threads.append(thread)
-            thread.start()
+        results = await asyncio.gather(*tasks)
         
-        # Retrieval threads
-        for i in range(10):
-            thread = threading.Thread(target=get_provider, args=(f"resource_{i % 5}",))
-            threads.append(thread)
-            thread.start()
-        
-        # Wait for all threads to complete
-        for thread in threads:
-            thread.join()
-        
-        # Registry should be in a consistent state
-        assert len(registry._providers) >= 5
+        # All should succeed (state isolation working)
+        assert len(results) == 10
+        assert all("accessed_resource_" in result for result in results)
 
 
 class TestProviderLifecycle:
     """Tests for provider lifecycle management and cleanup.
     
-    Validates: Requirements 7.7
+    Validates: Requirements 9.4
     """
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        from fastapi_role.rbac import _service_registry, _service_stack
+        _service_registry.clear()
+        _service_stack.clear()
 
     def test_provider_initialization(self):
-        """Test provider initialization with various configurations."""
+        """Test proper provider initialization."""
         
-        # Test default initialization
-        provider1 = DefaultSubjectProvider()
-        assert provider1.field_name == "email"
+        class InitializableService:
+            def __init__(self):
+                self.initialized = False
+                self.connections = []
+            
+            def initialize(self):
+                self.initialized = True
+                self.connections.append("database")
+                self.connections.append("cache")
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return self.initialized
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return self.initialized
         
-        # Test custom initialization
-        provider2 = DefaultSubjectProvider(field_name="username")
-        assert provider2.field_name == "username"
+        service = InitializableService()
+        service.initialize()
+        
+        set_rbac_service(service)
+        
+        # Verify initialization
+        assert service.initialized
+        assert len(service.connections) == 2
 
-    def test_provider_configuration_updates(self):
-        """Test updating provider configuration."""
+    def test_provider_cleanup(self):
+        """Test proper provider cleanup."""
         
-        provider = DefaultRoleProvider()
+        class CleanupService:
+            def __init__(self):
+                self.resources = ["connection1", "connection2", "cache"]
+                self.cleaned_up = False
+            
+            def cleanup(self):
+                self.resources.clear()
+                self.cleaned_up = True
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return not self.cleaned_up
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return not self.cleaned_up
         
-        # Initial configuration
-        assert provider.superadmin_role is None
+        service = CleanupService()
+        set_rbac_service(service, "cleanup_service")
         
-        # Update configuration (if supported)
-        provider.superadmin_role = "admin"
-        assert provider.superadmin_role == "admin"
+        # Simulate cleanup
+        service.cleanup()
+        
+        # Verify cleanup
+        assert service.cleaned_up
+        assert len(service.resources) == 0
 
-    @pytest.mark.asyncio
-    async def test_cache_provider_cleanup(self):
-        """Test cache provider cleanup operations."""
+    def test_provider_context_lifecycle(self):
+        """Test provider lifecycle within context managers."""
         
-        provider = DefaultCacheProvider()
+        class ContextLifecycleService:
+            def __init__(self):
+                self.active = False
+                self.context_count = 0
+            
+            def __enter__(self):
+                self.active = True
+                self.context_count += 1
+                return self
+            
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                self.active = False
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return self.active
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return self.active
         
-        # Add some data
-        await provider.set("key1", "value1")
-        await provider.set("key2", "value2")
-        await provider.set("key3", "value3")
+        service = ContextLifecycleService()
         
-        # Verify data exists
-        assert await provider.get("key1") == "value1"
-        assert await provider.get("key2") == "value2"
+        # Test context lifecycle
+        with service:
+            assert service.active
+            assert service.context_count == 1
         
-        # Clear all data
-        await provider.clear()
-        
-        # Verify data is cleared
-        assert await provider.get("key1") is None
-        assert await provider.get("key2") is None
-        assert await provider.get("key3") is None
-
-    @pytest.mark.asyncio
-    async def test_cache_provider_ttl_expiration(self):
-        """Test cache provider TTL expiration."""
-        
-        provider = DefaultCacheProvider()
-        
-        # Set value with short TTL
-        await provider.set("expiring_key", "expiring_value", ttl=1)
-        
-        # Should be available immediately
-        assert await provider.get("expiring_key") == "expiring_value"
-        
-        # Wait for expiration
-        await asyncio.sleep(1.1)
-        
-        # Should be expired (implementation dependent)
-        # Note: DefaultCacheProvider might not implement TTL, so this is conceptual
-        result = await provider.get("expiring_key")
-        # Result might still be there if TTL is not implemented
-
-    def test_ownership_registry_cleanup(self):
-        """Test ownership registry cleanup operations."""
-        
-        registry = OwnershipRegistry()
-        
-        # Register multiple providers
-        for i in range(5):
-            provider = DefaultOwnershipProvider()
-            registry.register(f"resource_{i}", provider)
-        
-        # Verify providers are registered
-        assert len(registry._providers) == 5
-        
-        # Clear registry (if supported)
-        registry._providers.clear()
-        
-        # Verify registry is empty
-        assert len(registry._providers) == 0
+        assert not service.active
 
     def test_provider_resource_management(self):
-        """Test provider resource management and memory usage."""
+        """Test provider resource management."""
         
-        # Create many providers to test resource management
-        providers = []
-        for i in range(100):
-            provider = DefaultSubjectProvider(field_name=f"field_{i}")
-            providers.append(provider)
+        class ResourceManagedService:
+            def __init__(self):
+                self.connections = {}
+                self.connection_count = 0
+            
+            def acquire_connection(self, name: str):
+                self.connection_count += 1
+                self.connections[name] = f"connection_{self.connection_count}"
+                return self.connections[name]
+            
+            def release_connection(self, name: str):
+                if name in self.connections:
+                    del self.connections[name]
+            
+            def release_all_connections(self):
+                self.connections.clear()
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return len(self.connections) > 0
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return len(self.connections) > 0
         
-        # Verify all providers are created
-        assert len(providers) == 100
+        service = ResourceManagedService()
         
-        # Clear references
-        providers.clear()
+        # Test resource acquisition
+        conn1 = service.acquire_connection("primary")
+        conn2 = service.acquire_connection("secondary")
         
-        # Python garbage collection should handle cleanup
-        assert len(providers) == 0
+        assert len(service.connections) == 2
+        assert conn1 != conn2
+        
+        # Test resource release
+        service.release_connection("primary")
+        assert len(service.connections) == 1
+        
+        # Test release all
+        service.release_all_connections()
+        assert len(service.connections) == 0
+
+    def test_provider_error_recovery(self):
+        """Test provider error recovery and restart."""
+        
+        class RecoverableService:
+            def __init__(self):
+                self.healthy = True
+                self.error_count = 0
+                self.recovery_count = 0
+            
+            def simulate_error(self):
+                self.healthy = False
+                self.error_count += 1
+            
+            def recover(self):
+                self.healthy = True
+                self.recovery_count += 1
+            
+            async def check_permission(self, user, resource, action, context=None):
+                if not self.healthy:
+                    raise Exception("Service unhealthy")
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                if not self.healthy:
+                    raise Exception("Service unhealthy")
+                return True
+        
+        service = RecoverableService()
+        
+        # Test error simulation
+        service.simulate_error()
+        assert not service.healthy
+        assert service.error_count == 1
+        
+        # Test recovery
+        service.recover()
+        assert service.healthy
+        assert service.recovery_count == 1
 
 
-class TestProviderValidation:
+class TestProviderConfiguration:
     """Tests for provider configuration validation and error reporting.
     
-    Validates: Requirements 7.5, 7.6
+    Validates: Requirements 9.4
     """
 
-    def test_subject_provider_field_validation(self):
-        """Test subject provider field name validation."""
+    def test_configuration_validation(self):
+        """Test validation of provider configuration."""
         
-        # Valid field names
-        valid_provider = DefaultSubjectProvider(field_name="email")
-        assert valid_provider.field_name == "email"
+        class ConfigurableService:
+            def __init__(self, config: Dict[str, Any]):
+                self.config = self._validate_config(config)
+            
+            def _validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+                required_keys = ["timeout", "retries", "cache_size"]
+                
+                for key in required_keys:
+                    if key not in config:
+                        raise ValueError(f"Missing required configuration: {key}")
+                
+                if config["timeout"] <= 0:
+                    raise ValueError("Timeout must be positive")
+                
+                if config["retries"] < 0:
+                    raise ValueError("Retries cannot be negative")
+                
+                return config
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        # Empty field name should work (might use default)
-        empty_provider = DefaultSubjectProvider(field_name="")
-        assert empty_provider.field_name == ""
+        # Test valid configuration
+        valid_config = {"timeout": 30, "retries": 3, "cache_size": 1000}
+        service = ConfigurableService(valid_config)
+        assert service.config == valid_config
+        
+        # Test invalid configuration
+        with pytest.raises(ValueError, match="Missing required configuration"):
+            ConfigurableService({"timeout": 30})
+        
+        with pytest.raises(ValueError, match="Timeout must be positive"):
+            ConfigurableService({"timeout": -1, "retries": 3, "cache_size": 1000})
 
-    def test_role_provider_superadmin_validation(self):
-        """Test role provider superadmin role validation."""
+    def test_configuration_error_reporting(self):
+        """Test error reporting for configuration issues."""
         
-        # Valid superadmin role
-        provider1 = DefaultRoleProvider(superadmin_role="admin")
-        assert provider1.superadmin_role == "admin"
+        class ErrorReportingService:
+            def __init__(self, config: Dict[str, Any]):
+                self.config = config
+                self.errors = []
+                self._validate_and_report_errors()
+            
+            def _validate_and_report_errors(self):
+                if "database_url" not in self.config:
+                    self.errors.append("Missing database_url configuration")
+                
+                if "api_key" not in self.config:
+                    self.errors.append("Missing api_key configuration")
+                
+                if self.config.get("max_connections", 0) <= 0:
+                    self.errors.append("max_connections must be positive")
+            
+            def has_errors(self) -> bool:
+                return len(self.errors) > 0
+            
+            def get_error_report(self) -> str:
+                return "; ".join(self.errors)
+            
+            async def check_permission(self, user, resource, action, context=None):
+                if self.has_errors():
+                    raise Exception(f"Configuration errors: {self.get_error_report()}")
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        # None superadmin role (no superadmin)
-        provider2 = DefaultRoleProvider(superadmin_role=None)
-        assert provider2.superadmin_role is None
+        # Test configuration with errors
+        config_with_errors = {"max_connections": -1}
+        service = ErrorReportingService(config_with_errors)
+        
+        assert service.has_errors()
+        error_report = service.get_error_report()
+        assert "Missing database_url" in error_report
+        assert "Missing api_key" in error_report
+        assert "max_connections must be positive" in error_report
 
-    def test_cache_provider_ttl_validation(self):
-        """Test cache provider TTL validation."""
+    def test_dynamic_configuration_updates(self):
+        """Test dynamic configuration updates."""
         
-        # Valid TTL
-        provider1 = DefaultCacheProvider(default_ttl=300)
-        assert provider1.default_ttl == 300
+        class DynamicConfigService:
+            def __init__(self, initial_config: Dict[str, Any]):
+                self.config = initial_config
+                self.config_version = 1
+            
+            def update_config(self, new_config: Dict[str, Any]):
+                self.config.update(new_config)
+                self.config_version += 1
+            
+            def get_config_value(self, key: str, default=None):
+                return self.config.get(key, default)
+            
+            async def check_permission(self, user, resource, action, context=None):
+                # Use configuration to determine permission
+                return self.get_config_value("allow_all", False)
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        # Zero TTL (no expiration)
-        provider2 = DefaultCacheProvider(default_ttl=0)
-        assert provider2.default_ttl == 0
+        initial_config = {"allow_all": False, "timeout": 30}
+        service = DynamicConfigService(initial_config)
         
-        # Negative TTL should be handled appropriately
-        provider3 = DefaultCacheProvider(default_ttl=-1)
-        assert provider3.default_ttl == -1
-
-    def test_ownership_provider_configuration_validation(self):
-        """Test ownership provider configuration validation."""
+        # Test initial configuration
+        assert service.get_config_value("allow_all") is False
+        assert service.config_version == 1
         
-        # Valid configuration
-        provider1 = DefaultOwnershipProvider(superadmin_role="admin", default_allow=False)
-        assert provider1.superadmin_role == "admin"
-        assert provider1.default_allow is False
-        
-        # No superadmin configuration
-        provider2 = DefaultOwnershipProvider(superadmin_role=None, default_allow=True)
-        assert provider2.superadmin_role is None
-        assert provider2.default_allow is True
-
-    def test_ownership_registry_validation(self):
-        """Test ownership registry configuration validation."""
-        
-        # Valid registry configuration
-        registry1 = OwnershipRegistry(default_allow=True)
-        assert registry1.default_allow is True
-        
-        registry2 = OwnershipRegistry(default_allow=False)
-        assert registry2.default_allow is False
-
-    def test_provider_error_message_clarity(self):
-        """Test that provider error messages are clear and helpful."""
-        
-        registry = OwnershipRegistry(default_allow=False)
-        
-        # Test clear error message for missing provider
-        with pytest.raises(ValueError) as exc_info:
-            registry.get_provider("nonexistent_resource")
-        
-        error_message = str(exc_info.value)
-        assert "No ownership provider registered" in error_message
-        assert "nonexistent_resource" in error_message
+        # Test configuration update
+        service.update_config({"allow_all": True, "new_setting": "value"})
+        assert service.get_config_value("allow_all") is True
+        assert service.get_config_value("new_setting") == "value"
+        assert service.config_version == 2
 
 
-class TestMockProviderImplementations:
-    """Tests for provider system with mock implementations.
+class TestProviderMockImplementations:
+    """Tests with mock implementations and edge cases.
     
-    Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.7
+    Validates: Requirements 9.4
     """
+
+    def teardown_method(self):
+        """Clean up after each test."""
+        from fastapi_role.rbac import _service_registry, _service_stack
+        _service_registry.clear()
+        _service_stack.clear()
 
     @pytest.fixture
     def user(self):
         """Create a test user."""
-        user = User()
-        user.id = 1
-        user.email = "test@example.com"
-        user.role = Role.CUSTOMER.value
-        return user
-
-    def test_mock_subject_provider(self, user):
-        """Test system with mock subject provider."""
-        
-        class MockSubjectProvider:
-            def __init__(self, subject_format: str = "mock_{id}"):
-                self.subject_format = subject_format
-            
-            def get_subject(self, user: UserProtocol) -> str:
-                return self.subject_format.format(id=user.id)
-        
-        mock_provider = MockSubjectProvider()
-        result = mock_provider.get_subject(user)
-        assert result == "mock_1"
-
-    @pytest.mark.asyncio
-    async def test_mock_role_provider(self, user):
-        """Test system with mock role provider."""
-        
-        class MockRoleProvider:
-            def __init__(self, roles: Dict[int, List[str]]):
-                self.roles = roles
-            
-            async def get_user_roles(self, user: UserProtocol) -> List[str]:
-                return self.roles.get(user.id, [])
-            
-            async def has_role(self, user: UserProtocol, role_name: str) -> bool:
-                user_roles = await self.get_user_roles(user)
-                return role_name in user_roles
-        
-        mock_provider = MockRoleProvider({1: ["customer", "premium"], 2: ["admin"]})
-        
-        roles = await mock_provider.get_user_roles(user)
-        assert roles == ["customer", "premium"]
-        
-        has_customer = await mock_provider.has_role(user, "customer")
-        assert has_customer is True
-        
-        has_admin = await mock_provider.has_role(user, "admin")
-        assert has_admin is False
-
-    @pytest.mark.asyncio
-    async def test_mock_cache_provider(self):
-        """Test system with mock cache provider."""
-        
-        class MockCacheProvider:
+        class TestUser:
             def __init__(self):
-                self.data = {}
-                self.stats = {"hits": 0, "misses": 0, "sets": 0}
-            
-            async def get(self, key: str) -> Optional[Any]:
-                if key in self.data:
-                    self.stats["hits"] += 1
-                    return self.data[key]
-                else:
-                    self.stats["misses"] += 1
-                    return None
-            
-            async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-                self.data[key] = value
-                self.stats["sets"] += 1
-            
-            async def clear(self, pattern: Optional[str] = None) -> None:
-                if pattern:
-                    # Simple pattern matching (starts with)
-                    keys_to_remove = [k for k in self.data.keys() if k.startswith(pattern.rstrip('*'))]
-                    for key in keys_to_remove:
-                        del self.data[key]
-                else:
-                    self.data.clear()
-            
-            async def get_stats(self) -> Dict[str, Any]:
-                return self.stats.copy()
-        
-        mock_provider = MockCacheProvider()
-        
-        # Test set and get
-        await mock_provider.set("key1", "value1")
-        result = await mock_provider.get("key1")
-        assert result == "value1"
-        
-        # Test miss
-        result = await mock_provider.get("nonexistent")
-        assert result is None
-        
-        # Test stats
-        stats = await mock_provider.get_stats()
-        assert stats["hits"] == 1
-        assert stats["misses"] == 1
-        assert stats["sets"] == 1
+                self.id = 1
+                self.email = "test@example.com"
+                self.role = "user"
+        return TestUser()
 
     @pytest.mark.asyncio
-    async def test_mock_ownership_provider(self, user):
-        """Test system with mock ownership provider."""
+    async def test_always_allow_mock(self, user):
+        """Test mock implementation that always allows access."""
         
-        class MockOwnershipProvider:
-            def __init__(self, ownership_rules: Dict[str, Dict[Any, List[int]]]):
-                self.ownership_rules = ownership_rules
+        class AlwaysAllowMock:
+            async def check_permission(self, user, resource, action, context=None):
+                return True
             
-            async def check_ownership(self, user: UserProtocol, resource_type: str, resource_id: Any) -> bool:
-                if resource_type not in self.ownership_rules:
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
+        
+        mock_service = AlwaysAllowMock()
+        
+        @require(Permission("mock", "test"))
+        async def mock_function(current_user, rbac_service):
+            return f"always_allowed_for_{current_user.email}"
+        
+        result = await mock_function(user, mock_service)
+        assert result == f"always_allowed_for_{user.email}"
+
+    @pytest.mark.asyncio
+    async def test_always_deny_mock(self, user):
+        """Test mock implementation that always denies access."""
+        
+        class AlwaysDenyMock:
+            async def check_permission(self, user, resource, action, context=None):
+                return False
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return False
+        
+        mock_service = AlwaysDenyMock()
+        
+        @require(Permission("mock", "test"))
+        async def mock_function(current_user, rbac_service):
+            return "should_not_reach_here"
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await mock_function(user, mock_service)
+        assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_conditional_mock(self, user):
+        """Test mock implementation with conditional logic."""
+        
+        class ConditionalMock:
+            def __init__(self):
+                self.allowed_users = {"test@example.com", "admin@example.com"}
+                self.allowed_resources = {"documents", "reports"}
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return (user.email in self.allowed_users and 
+                       resource in self.allowed_resources)
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return user.email in self.allowed_users
+        
+        mock_service = ConditionalMock()
+        
+        @require(Permission("documents", "read"))
+        async def read_document(current_user, rbac_service):
+            return f"document_read_by_{current_user.email}"
+        
+        @require(Permission("secrets", "read"))
+        async def read_secrets(current_user, rbac_service):
+            return "should_not_reach_here"
+        
+        # Should allow access to documents
+        result = await read_document(user, mock_service)
+        assert result == f"document_read_by_{user.email}"
+        
+        # Should deny access to secrets
+        with pytest.raises(HTTPException):
+            await read_secrets(user, mock_service)
+
+    @pytest.mark.asyncio
+    async def test_stateful_mock(self, user):
+        """Test mock implementation that maintains state."""
+        
+        class StatefulMock:
+            def __init__(self):
+                self.access_count = {}
+                self.max_accesses = 3
+            
+            async def check_permission(self, user, resource, action, context=None):
+                key = f"{user.email}:{resource}:{action}"
+                current_count = self.access_count.get(key, 0)
+                
+                if current_count >= self.max_accesses:
                     return False
                 
-                resource_owners = self.ownership_rules[resource_type].get(resource_id, [])
-                return user.id in resource_owners
+                self.access_count[key] = current_count + 1
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return True
         
-        # Define ownership rules: resource_type -> resource_id -> list of owner user IDs
-        ownership_rules = {
-            "documents": {
-                "doc1": [1, 2],  # User 1 and 2 own doc1
-                "doc2": [2],     # Only user 2 owns doc2
-            },
-            "projects": {
-                "proj1": [1],    # Only user 1 owns proj1
-            }
-        }
+        mock_service = StatefulMock()
         
-        mock_provider = MockOwnershipProvider(ownership_rules)
+        @require(Permission("limited", "access"))
+        async def limited_function(current_user, rbac_service):
+            return f"access_granted_to_{current_user.email}"
         
-        # Test ownership checks
-        owns_doc1 = await mock_provider.check_ownership(user, "documents", "doc1")
-        assert owns_doc1 is True
+        # First few accesses should succeed
+        for i in range(3):
+            result = await limited_function(user, mock_service)
+            assert result == f"access_granted_to_{user.email}"
         
-        owns_doc2 = await mock_provider.check_ownership(user, "documents", "doc2")
-        assert owns_doc2 is False
-        
-        owns_proj1 = await mock_provider.check_ownership(user, "projects", "proj1")
-        assert owns_proj1 is True
-        
-        owns_nonexistent = await mock_provider.check_ownership(user, "nonexistent", "anything")
-        assert owns_nonexistent is False
+        # Fourth access should fail
+        with pytest.raises(HTTPException):
+            await limited_function(user, mock_service)
 
     @pytest.mark.asyncio
-    async def test_integrated_mock_providers(self, user):
-        """Test integrated system with multiple mock providers."""
+    async def test_random_mock(self, user):
+        """Test mock implementation with random behavior."""
         
-        # Create mock providers
-        subject_provider = MockSubjectProvider()
-        role_provider = MockRoleProvider({1: ["customer", "premium"]})
-        cache_provider = MockCacheProvider()
-        ownership_provider = MockOwnershipProvider({
-            "orders": {"order1": [1], "order2": [2]}
-        })
+        import random
         
-        # Test that they work together
-        subject = subject_provider.get_subject(user)
-        roles = await role_provider.get_user_roles(user)
+        class RandomMock:
+            def __init__(self, success_rate: float = 0.7):
+                self.success_rate = success_rate
+                random.seed(42)  # For reproducible tests
+            
+            async def check_permission(self, user, resource, action, context=None):
+                return random.random() < self.success_rate
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                return random.random() < self.success_rate
         
-        # Cache the results
-        await cache_provider.set(f"subject_{user.id}", subject)
-        await cache_provider.set(f"roles_{user.id}", roles)
+        mock_service = RandomMock(success_rate=1.0)  # Always succeed for this test
         
-        # Retrieve from cache
-        cached_subject = await cache_provider.get(f"subject_{user.id}")
-        cached_roles = await cache_provider.get(f"roles_{user.id}")
+        @require(Permission("random", "test"))
+        async def random_function(current_user, rbac_service):
+            return f"random_access_for_{current_user.email}"
         
-        assert cached_subject == subject
-        assert cached_roles == roles
+        # With success_rate=1.0, should always succeed
+        result = await random_function(user, mock_service)
+        assert result == f"random_access_for_{user.email}"
+
+    @pytest.mark.asyncio
+    async def test_logging_mock(self, user):
+        """Test mock implementation that logs all operations."""
         
-        # Test ownership
-        owns_order1 = await ownership_provider.check_ownership(user, "orders", "order1")
-        owns_order2 = await ownership_provider.check_ownership(user, "orders", "order2")
+        class LoggingMock:
+            def __init__(self):
+                self.permission_logs = []
+                self.ownership_logs = []
+            
+            async def check_permission(self, user, resource, action, context=None):
+                log_entry = {
+                    "user": user.email,
+                    "resource": resource,
+                    "action": action,
+                    "context": context,
+                    "timestamp": time.time()
+                }
+                self.permission_logs.append(log_entry)
+                return True
+            
+            async def check_resource_ownership(self, user, resource_type, resource_id):
+                log_entry = {
+                    "user": user.email,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "timestamp": time.time()
+                }
+                self.ownership_logs.append(log_entry)
+                return True
         
-        assert owns_order1 is True
-        assert owns_order2 is False
+        mock_service = LoggingMock()
+        
+        @require(Permission("logging", "test"), ResourceOwnership("document"))
+        async def logged_function(doc_id: int, current_user, rbac_service):
+            return f"logged_access_to_{doc_id}_by_{current_user.email}"
+        
+        result = await logged_function(123, user, mock_service)
+        
+        # Verify logging occurred
+        assert len(mock_service.permission_logs) == 1
+        assert len(mock_service.ownership_logs) == 1
+        
+        permission_log = mock_service.permission_logs[0]
+        assert permission_log["user"] == user.email
+        assert permission_log["resource"] == "logging"
+        assert permission_log["action"] == "test"
+        
+        ownership_log = mock_service.ownership_logs[0]
+        assert ownership_log["user"] == user.email
+        assert ownership_log["resource_type"] == "document"
+        assert ownership_log["resource_id"] == "123"

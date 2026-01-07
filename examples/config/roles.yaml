@@ -1,17 +1,25 @@
+# Role definitions for file-based RBAC example
+# This file defines the available roles and their permissions
+
 roles:
+  # System administrator with full access to all resources
 - description: System administrator with full access
   name: admin
   permissions:
-  - '*:*'
+  - '*:*'  # Wildcard permission for all resources and actions
+  
+  # Manager role with read access to all, write access to managed resources
 - description: Manager with read access to all, write access to managed resources
   name: manager
   permissions:
-  - '*:read'
+  - '*:read'  # Read access to all resource types
   - document:create
   - document:update
   - project:create
   - project:update
   - task:create
+  
+  # Content editor with document and task management capabilities
 - description: Content editor with document and task management
   name: editor
   permissions:
@@ -21,10 +29,14 @@ roles:
   - task:read
   - task:create
   - task:update
+  
+  # Viewer role with read-only access to public resources
 - description: Read-only access to public resources
   name: viewer
   permissions:
   - document:read
   - project:read
   - task:read
+
+# The superadmin role that bypasses all permission checks
 superadmin_role: admin
