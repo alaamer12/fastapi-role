@@ -1,0 +1,264 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run type checking with mypy
+      run: |
+        uv run mypy fastapi_role
+
+    - name: Run linting with ruff
+      run: |
+        uv run ruff check .
+
+    - name: Run formatting check with ruff
+      run: |
+        uv run ruff format --check .
+
+    - name: Run tests with pytest
+      run: |
+        uv run pytest --cov=fastapi_role --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run security scan with bandit
+      run: |
+        uv run bandit -r fastapi_role -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Run dependency vulnerability scan
+      run: |
+        uv run safety check --json --output safety-report.json
+      continue-on-error: true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  compatibility:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run core tests
+      run: |
+        uv run pytest tests/test_rbac_core.py -v
+
+    - name: Test package installation
+      run: |
+        uv build
+        pip install dist/*.whl
+        python -c "import fastapi_role; print('Package installed successfully')"
+
+  framework-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        framework:
+          - name: "fastapi"
+            install: "fastapi uvicorn"
+            test: "tests/test_fastapi_integration.py"
+          - name: "flask"
+            install: "flask"
+            test: "tests/test_flask_integration.py"
+          - name: "django"
+            install: "django"
+            test: "tests/test_django_integration.py"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        uv add ${{ matrix.framework.install }}
+
+    - name: Run framework tests
+      run: |
+        uv run pytest ${{ matrix.framework.test }} -v
+      continue-on-error: true
+
+  property-based-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run property-based tests
+      run: |
+        uv run pytest tests/test_*_properties.py -v --hypothesis-show-statistics
+      timeout-minutes: 10
+
+    - name: Upload property test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: property-test-results
+        path: .hypothesis/
+
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run performance benchmarks
+      run: |
+        uv run pytest tests/test_rbac_performance.py -v --benchmark-only --benchmark-json=benchmark.json
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: benchmark.json
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Check documentation links
+      run: |
+        # Check that all examples in docs are valid Python
+        find docs -name "*.md" -exec grep -l "```python" {} \; | while read file; do
+          echo "Checking Python code blocks in $file"
+          # Extract and validate Python code blocks
+          awk '/```python/,/```/' "$file" | grep -v '```' > temp_code.py
+          if [ -s temp_code.py ]; then
+            python -m py_compile temp_code.py || echo "Syntax error in $file"
+          fi
+          rm -f temp_code.py
+        done
+
+    - name: Validate README examples
+      run: |
+        # Test that README examples are valid
+        python -c "
+        import re
+        with open('README.md', 'r') as f:
+            content = f.read()
+        
+        # Extract Python code blocks
+        code_blocks = re.findall(r'```python\n(.*?)\n```', content, re.DOTALL)
+        
+        for i, code in enumerate(code_blocks):
+            try:
+                compile(code, f'README_example_{i}', 'exec')
+                print(f'✓ README example {i} is valid')
+            except SyntaxError as e:
+                print(f'✗ README example {i} has syntax error: {e}')
+                exit(1)
+        "

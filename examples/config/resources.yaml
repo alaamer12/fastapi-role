@@ -1,0 +1,56 @@
+resource_types:
+- actions:
+  - read
+  - create
+  - update
+  - delete
+  - share
+  default_permissions:
+    owner:
+    - read
+    - update
+    - delete
+    - share
+    public:
+    - read
+  description: Text documents and files
+  name: document
+  ownership_provider: document_ownership
+- actions:
+  - read
+  - create
+  - update
+  - delete
+  - manage_members
+  default_permissions:
+    member:
+    - read
+    - update
+    owner:
+    - read
+    - update
+    - delete
+    - manage_members
+    public:
+    - read
+  description: Projects and workspaces
+  name: project
+  ownership_provider: project_ownership
+- actions:
+  - read
+  - create
+  - update
+  - delete
+  - assign
+  default_permissions:
+    assignee:
+    - read
+    - update
+    owner:
+    - read
+    - update
+    - delete
+    public: []
+  description: Tasks and assignments
+  name: task
+  ownership_provider: task_ownership

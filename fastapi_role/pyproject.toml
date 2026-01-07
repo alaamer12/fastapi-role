@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-role"
-version = "0.1.0.dev1"
-description = "Role-Based Access Control (RBAC) library for FastAPI applications, powered by Casbin."
+version = "1.0.0"
+description = "Pure General RBAC Engine - Framework-agnostic Role-Based Access Control library with zero business assumptions, powered by Casbin."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
@@ -13,16 +13,24 @@ authors = [
     { name = "Alaamer", email = "ahmedmuhmmed239@gmail.com" }
 ]
 keywords = [
-    "fastapi",
     "rbac",
     "casbin",
     "authorization",
     "role-based-access-control",
-    "security"
+    "security",
+    "framework-agnostic",
+    "pure-rbac",
+    "general-rbac",
+    "business-agnostic",
+    "fastapi",
+    "flask",
+    "django"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: FastAPI",
+    "Framework :: Flask",
+    "Framework :: Django",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.9",
@@ -30,19 +38,38 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Internet :: WWW/HTTP",
+    "Topic :: System :: Systems Administration :: Authentication/Directory",
     "Typing :: Typed",
     "Operating System :: OS Independent",
 ]
 
 dependencies = [
-    "fastapi",
-    "casbin",
-    "sqlalchemy",
-    "pydantic",
-    "pydantic-settings",
-    "uvicorn",
-    "platformdirs",
+    "casbin>=1.17.0",
+    "pydantic>=2.0.0",
+    "platformdirs>=3.0.0",
+]
+
+[project.optional-dependencies]
+fastapi = [
+    "fastapi>=0.100.0",
+]
+flask = [
+    "flask>=2.0.0",
+]
+django = [
+    "django>=4.0.0",
+]
+sqlalchemy = [
+    "sqlalchemy>=2.0.0",
+]
+all = [
+    "fastapi>=0.100.0",
+    "flask>=2.0.0", 
+    "django>=4.0.0",
+    "sqlalchemy>=2.0.0",
+    "uvicorn>=0.20.0",
 ]
 
 [dependency-groups]
@@ -55,10 +82,16 @@ dev = [
     "pytest-clarity",
     "pytest-icdiff",
     "pytest-emoji",
+    "pytest-benchmark",
     "ruff",
     "mypy",
     "httpx",
     "hypothesis",
+    "bandit",
+    "safety",
+    "pip-audit",
+    "pip-licenses",
+    "twine",
 ]
 
 [project.urls]

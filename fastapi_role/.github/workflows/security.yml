@@ -1,0 +1,231 @@
+name: Security
+
+on:
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run Safety check
+      run: |
+        uv run safety check --json --output safety-report.json
+      continue-on-error: true
+
+    - name: Run pip-audit
+      run: |
+        uv run pip-audit --format=json --output=pip-audit-report.json
+      continue-on-error: true
+
+    - name: Upload dependency scan results
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-scan-results
+        path: |
+          safety-report.json
+          pip-audit-report.json
+
+  code-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run Bandit security scan
+      run: |
+        uv run bandit -r fastapi_role -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Run semgrep security scan
+      run: |
+        python -m pip install semgrep
+        semgrep --config=auto --json --output=semgrep-report.json fastapi_role/
+      continue-on-error: true
+
+    - name: Upload code scan results
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-scan-results
+        path: |
+          bandit-report.json
+          semgrep-report.json
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  rbac-security-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run RBAC security tests
+      run: |
+        # Test for privilege escalation vulnerabilities
+        uv run pytest tests/test_security_privilege_escalation.py -v
+        
+        # Test for authorization bypass vulnerabilities  
+        uv run pytest tests/test_security_bypass.py -v
+        
+        # Test for injection vulnerabilities
+        uv run pytest tests/test_security_injection.py -v
+        
+        # Test for timing attack vulnerabilities
+        uv run pytest tests/test_security_timing.py -v
+
+    - name: Test with malicious inputs
+      run: |
+        # Property-based testing with malicious inputs
+        uv run pytest tests/test_security_properties.py -v --hypothesis-show-statistics
+
+  license-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run license scan
+      run: |
+        uv run pip-licenses --format=json --output-file=licenses-report.json
+        
+        # Check for GPL or other copyleft licenses
+        uv run pip-licenses --format=plain | grep -E "(GPL|AGPL|LGPL)" && exit 1 || echo "No copyleft licenses found"
+
+    - name: Upload license scan results
+      uses: actions/upload-artifact@v3
+      with:
+        name: license-scan-results
+        path: licenses-report.json
+
+  security-report:
+    needs: [dependency-scan, code-scan, rbac-security-tests, license-scan]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Download all scan results
+      uses: actions/download-artifact@v3
+
+    - name: Generate security report
+      run: |
+        echo "# Security Scan Report" > security-report.md
+        echo "" >> security-report.md
+        echo "Generated on: $(date)" >> security-report.md
+        echo "" >> security-report.md
+        
+        echo "## Dependency Scan Results" >> security-report.md
+        if [ -f dependency-scan-results/safety-report.json ]; then
+          echo "- Safety scan completed" >> security-report.md
+        fi
+        if [ -f dependency-scan-results/pip-audit-report.json ]; then
+          echo "- Pip-audit scan completed" >> security-report.md
+        fi
+        echo "" >> security-report.md
+        
+        echo "## Code Scan Results" >> security-report.md
+        if [ -f code-scan-results/bandit-report.json ]; then
+          echo "- Bandit scan completed" >> security-report.md
+        fi
+        if [ -f code-scan-results/semgrep-report.json ]; then
+          echo "- Semgrep scan completed" >> security-report.md
+        fi
+        echo "" >> security-report.md
+        
+        echo "## RBAC Security Tests" >> security-report.md
+        echo "- Privilege escalation tests: ${{ needs.rbac-security-tests.result }}" >> security-report.md
+        echo "" >> security-report.md
+        
+        echo "## License Scan" >> security-report.md
+        echo "- License compatibility: ${{ needs.license-scan.result }}" >> security-report.md
+
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security-report.md
+
+    - name: Comment on PR (if applicable)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('security-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🔒 Security Scan Results\n\n${report}`
+          });

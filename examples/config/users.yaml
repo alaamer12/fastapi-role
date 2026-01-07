@@ -1,0 +1,33 @@
+users:
+- attributes:
+    department: IT
+    level: senior
+  email: admin@example.com
+  id: 1
+  name: System Administrator
+  password_hash: admin_password_hash
+  role: admin
+- attributes:
+    department: Operations
+    level: senior
+  email: manager@example.com
+  id: 2
+  name: Project Manager
+  password_hash: manager_password_hash
+  role: manager
+- attributes:
+    department: Content
+    level: mid
+  email: editor@example.com
+  id: 3
+  name: Content Editor
+  password_hash: editor_password_hash
+  role: editor
+- attributes:
+    department: Marketing
+    level: junior
+  email: viewer@example.com
+  id: 4
+  name: Content Viewer
+  password_hash: viewer_password_hash
+  role: viewer

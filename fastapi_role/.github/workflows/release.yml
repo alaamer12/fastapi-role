@@ -1,0 +1,158 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run full test suite
+      run: |
+        uv run pytest --cov=fastapi_role --cov-report=term-missing
+
+    - name: Run security checks
+      run: |
+        uv run bandit -r fastapi_role
+        uv run safety check
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+
+    - name: Build package
+      run: |
+        uv build
+
+    - name: Check package
+      run: |
+        uv run twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+  publish-pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write  # For trusted publishing
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
+  create-release:
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Generate changelog from git commits
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -n "$PREVIOUS_TAG" ]; then
+          CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s")
+        fi
+        
+        # Save changelog to file
+        echo "## Changes in v$VERSION" > changelog.md
+        echo "" >> changelog.md
+        echo "$CHANGELOG" >> changelog.md
+        
+        # Also extract from CHANGELOG.md if it exists
+        if [ -f "CHANGELOG.md" ]; then
+          echo "" >> changelog.md
+          echo "## Full Changelog" >> changelog.md
+          echo "" >> changelog.md
+          # Extract section for this version
+          awk "/## \[$VERSION\]/,/## \[/{if(/## \[/ && !/## \[$VERSION\]/) exit; print}" CHANGELOG.md >> changelog.md
+        fi
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release v${{ steps.changelog.outputs.version }}
+        body_path: changelog.md
+        draft: false
+        prerelease: false
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/
+        asset_name: fastapi-role-${{ steps.changelog.outputs.version }}-dist
+        asset_content_type: application/zip
+
+  notify:
+    needs: [publish-pypi, create-release]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Notify success
+      if: needs.publish-pypi.result == 'success' && needs.create-release.result == 'success'
+      run: |
+        echo "🎉 Successfully released fastapi-role v${GITHUB_REF#refs/tags/v}"
+        echo "📦 Package available on PyPI: https://pypi.org/project/fastapi-role/"
+        echo "📋 Release notes: https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF#refs/tags/}"
+
+    - name: Notify failure
+      if: needs.publish-pypi.result == 'failure' || needs.create-release.result == 'failure'
+      run: |
+        echo "❌ Release failed for fastapi-role v${GITHUB_REF#refs/tags/v}"
+        echo "Check the workflow logs for details."
+        exit 1

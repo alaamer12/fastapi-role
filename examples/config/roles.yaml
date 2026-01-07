@@ -1,0 +1,30 @@
+roles:
+- description: System administrator with full access
+  name: admin
+  permissions:
+  - '*:*'
+- description: Manager with read access to all, write access to managed resources
+  name: manager
+  permissions:
+  - '*:read'
+  - document:create
+  - document:update
+  - project:create
+  - project:update
+  - task:create
+- description: Content editor with document and task management
+  name: editor
+  permissions:
+  - document:read
+  - document:create
+  - document:update
+  - task:read
+  - task:create
+  - task:update
+- description: Read-only access to public resources
+  name: viewer
+  permissions:
+  - document:read
+  - project:read
+  - task:read
+superadmin_role: admin
