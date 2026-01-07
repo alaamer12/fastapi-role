@@ -10,13 +10,8 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from typing import Union
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-
-from fastapi_role.base import BaseService
 from fastapi_role.core.ownership import OwnershipRegistry
+from fastapi_role.core.resource import ResourceRef, Permission, Privilege
 from fastapi_role.exception import (
     PolicyEvaluationException,
 )
@@ -44,15 +39,15 @@ logger = logging.getLogger(__name__)
 rbac_service = None
 
 
-class RBACService(BaseService):
+class RBACService:
     """Service for RBAC operations using Casbin.
 
     Now initialized with a CasbinConfig object for zero-file configuration.
+    Database-agnostic RBAC service that works without direct database dependencies.
     """
 
     def __init__(
             self,
-            db: Union[AsyncSession, Session],
             config: Optional[CasbinConfig] = None,
             subject_provider: Optional[SubjectProvider] = None,
             role_provider: Optional[RoleProvider] = None,
@@ -61,18 +56,22 @@ class RBACService(BaseService):
         """Initializes the RBAC service.
 
         Args:
-            db: Database session for operations (AsyncSession or Session).
             config (Optional[CasbinConfig]): CasbinConfig object containing
                 the security model.
             subject_provider: Optional custom subject provider.
             role_provider: Optional custom role provider.
             cache_provider: Optional custom cache provider.
         """
-        super().__init__(db)
+        
+        # Store config for superadmin role access
+        self.config = config
+        
+        # Get superadmin role from config, default to None (no superadmin bypass)
+        superadmin_role = config.superadmin_role if config else None
 
         # Initialize providers with defaults if not provided
         self.subject_provider = subject_provider or DefaultSubjectProvider()
-        self.role_provider = role_provider or DefaultRoleProvider()
+        self.role_provider = role_provider or DefaultRoleProvider(superadmin_role=superadmin_role)
         self.cache_provider = cache_provider or DefaultCacheProvider(default_ttl=300)
 
         # Initialize Enforcer
@@ -92,14 +91,10 @@ class RBACService(BaseService):
             )
             self.enforcer = None
 
-        # Legacy cache attributes for backward compatibility
-        self._customer_cache: dict[int, list[int]] = {}
-        self._cache_timestamp = datetime.utcnow()
-
-        # Initialize ownership registry with default provider
+        # Initialize ownership registry with default provider using configured superadmin role
         self.ownership_registry = OwnershipRegistry(default_allow=False)
         self.ownership_registry.register(
-            "*", DefaultOwnershipProvider(superadmin_role="superadmin", default_allow=False)
+            "*", DefaultOwnershipProvider(superadmin_role=superadmin_role, default_allow=False)
         )
 
         # Set global instance (naive approach for decorator access)
@@ -173,30 +168,124 @@ class RBACService(BaseService):
         # No provider registered - deny by default (fail closed)
         return False
 
-    async def get_accessible_customers(self, user: UserProtocol) -> list[int]:
-        """Get list of customer IDs user can access."""
-        if user.id in self._customer_cache:
-            return self._customer_cache[user.id]
+    async def can_access(
+        self, 
+        user: UserProtocol, 
+        resource: ResourceRef, 
+        action: str,
+        context: Optional[dict] = None
+    ) -> bool:
+        """Check if user can access resource with action.
+        
+        This is the main generic access control method that works with any resource type.
+        
+        Args:
+            user: User to check access for
+            resource: Generic resource reference
+            action: Action to perform on the resource
+            context: Optional context for the access check
+            
+        Returns:
+            True if access is allowed, False otherwise
+        """
+        # Check permission via policy engine
+        permission_allowed = await self.check_permission(
+            user, resource.type, action, context
+        )
+        
+        if not permission_allowed:
+            return False
+            
+        # Check ownership if required by checking if ownership provider exists for this resource type
+        if self.ownership_registry.has_provider(resource.type) or self.ownership_registry.has_provider("*"):
+            ownership_allowed = await self.check_resource_ownership(user, resource.type, resource.id)
+            if not ownership_allowed:
+                return False
+                
+        return True
 
-        accessible = []
-
-        if self.role_provider.has_role(user, "superadmin"):
-            # Access all
+    async def evaluate(self, user: UserProtocol, privilege: Privilege) -> bool:
+        """Evaluate a privilege against user.
+        
+        This method evaluates complex privilege requirements that may include
+        roles, permissions, and ownership requirements.
+        
+        Args:
+            user: User to evaluate privilege for
+            privilege: Privilege definition to evaluate
+            
+        Returns:
+            True if user satisfies the privilege, False otherwise
+        """
+        # Check role requirements
+        if privilege.roles:
+            user_role = getattr(user, 'role', None)
+            if user_role not in privilege.roles:
+                # Check if user has superadmin bypass
+                superadmin_role = self.config.superadmin_role if self.config else None
+                if not (superadmin_role and user_role == superadmin_role):
+                    return False
+                    
+        # Check permission requirements
+        if privilege.permissions:
+            for perm in privilege.permissions:
+                allowed = await self.check_permission(
+                    user, perm.resource, perm.action, perm.context
+                )
+                if not allowed:
+                    return False
+                    
+        # Check ownership requirements
+        if privilege.ownership_required:
+            for resource_type in privilege.ownership_required:
+                # For ownership checks, we need a resource ID from context or user
+                # This is a simplified implementation - real applications would
+                # extract resource IDs from the context or function parameters
+                resource_id = getattr(user, 'id', None)  # Fallback to user ID
+                if resource_id:
+                    allowed = await self.check_resource_ownership(user, resource_type, resource_id)
+                    if not allowed:
+                        return False
+                        
+        # Check additional conditions (placeholder for future extension)
+        if privilege.conditions:
+            # This can be extended to support complex condition evaluation
+            # For now, we assume conditions are satisfied
             pass
-        else:
-            # Regular user access logic
-            pass
+                
+        return True
 
-        self._customer_cache[user.id] = accessible
-        return accessible
+    async def get_accessible_resources(self, user: UserProtocol, resource_type: str) -> list[Any]:
+        """Get list of resource IDs user can access for a given resource type.
+        
+        This is a generic replacement for business-specific access methods.
+        Implementation depends on the specific ownership providers registered.
+        
+        Args:
+            user: User to check access for
+            resource_type: Type of resource (e.g., "order", "project", "document")
+            
+        Returns:
+            List of resource IDs the user can access
+        """
+        # For superadmin users, delegate to role provider
+        superadmin_role = self.config.superadmin_role if self.config else None
+        if superadmin_role and hasattr(self.role_provider, 'has_role') and self.role_provider.has_role(user, superadmin_role):
+            # Superadmin access - implementation depends on business logic
+            # This is a placeholder that should be customized by the application
+            return []
+        
+        # For regular users, this would typically involve querying the application's
+        # data layer with appropriate ownership filters. Since we're now database-agnostic,
+        # this method serves as a template that applications should override or
+        # implement through custom providers.
+        return []
 
     async def assign_role_to_user(self, user: UserProtocol, role: Enum) -> None:
-        """Assign role to user and update Casbin policies (async sessions only).
+        """Assign role to user and update Casbin policies.
         
-        For synchronous sessions, use assign_role_to_user_sync() instead.
-        
-        Raises:
-            RuntimeError: If called with a synchronous session
+        Note: This method no longer handles database persistence.
+        The caller is responsible for persisting user role changes.
         """
         if not self.enforcer:
             return
@@ -204,9 +293,8 @@ class RBACService(BaseService):
         # Get subject from provider
         subject = self.subject_provider.get_subject(user)
 
-        # Update user role in database
+        # Update user role (caller must persist this change)
         user.role = role.value
-        await self.commit()
 
         # Update Casbin role assignment
         self.enforcer.remove_grouping_policy(subject)
@@ -216,12 +304,10 @@ class RBACService(BaseService):
         logger.info(f"Assigned role {role.value} to user {subject}")
 
     def assign_role_to_user_sync(self, user: UserProtocol, role: Enum) -> None:
-        """Assign role to user and update Casbin policies (sync sessions only).
+        """Assign role to user and update Casbin policies (synchronous version).
         
-        For asynchronous sessions, use await assign_role_to_user() instead.
-        
-        Raises:
-            RuntimeError: If called with an asynchronous session
+        Note: This method no longer handles database persistence.
+        The caller is responsible for persisting user role changes.
         """
         if not self.enforcer:
             return
@@ -229,9 +315,8 @@ class RBACService(BaseService):
         # Get subject from provider
         subject = self.subject_provider.get_subject(user)
 
-        # Update user role in database
+        # Update user role (caller must persist this change)
         user.role = role.value
-        self.commit_sync()
 
         # Update Casbin role assignment
         self.enforcer.remove_grouping_policy(subject)
@@ -267,17 +352,13 @@ class RBACService(BaseService):
         provider_stats = self.cache_provider.get_stats()
         return {
             **provider_stats,
-            "customer_cache_size": len(self._customer_cache),
-            "cache_age_minutes": (datetime.utcnow() - self._cache_timestamp).total_seconds() / 60,
         }
 
     def is_cache_expired(self, max_age_minutes: int = 30) -> bool:
         """Check if cache is expired."""
-        age = (datetime.utcnow() - self._cache_timestamp).total_seconds() / 60
-        return age > max_age_minutes
+        # Delegate to cache provider for expiration logic
+        return False  # Default implementation
 
     def clear_cache(self) -> None:
-        """Clear permission and customer caches."""
+        """Clear permission caches."""
         self.cache_provider.clear()
-        self._customer_cache.clear()
-        self._cache_timestamp = datetime.utcnow()

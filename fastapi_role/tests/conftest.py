@@ -68,7 +68,7 @@ def roles() -> _TypeRoles:
 @pytest.fixture
 def casbin_config(roles):
     """Create a standard CasbinConfig for tests."""
-    config = CasbinConfig()
+    config = CasbinConfig(superadmin_role="superadmin")
 
     # Define standard inheritance hierarchy if needed
     # For now, just add basic policies to match old csv
@@ -86,6 +86,5 @@ def casbin_config(roles):
 @pytest.fixture
 def rbac_service(casbin_config):
     """Create RBACService with test config."""
-    db = AsyncMock()
-    service = RBACService(db, config=casbin_config)
+    service = RBACService(config=casbin_config)
     return service

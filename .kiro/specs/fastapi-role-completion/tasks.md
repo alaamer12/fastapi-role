@@ -2,6 +2,8 @@
 
 ## Overview
 
+NO FALLBACK FOR BACKWARD COMPATABILITIES, THIS IS ENFORCED, DO NOT WRITE ANY FALLBACK COMPATBILITY CODE
+
 This implementation plan completes the transformation of fastapi-role into a pure general RBAC engine. **IMPLEMENTATION COMES FIRST** - we focus on eliminating all business coupling through actual code changes, then validate with tests. The goal is to create a truly business-agnostic RBAC core that works with any domain.
 
 ## Critical Business Coupling Issues Found
@@ -26,21 +28,21 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
 
 ## Implementation Tasks (Code First, Tests Second)
 
-- [ ] 1. IMMEDIATE: Remove All Business Coupling
+- [-] 1. IMMEDIATE: Remove All Business Coupling
 
-- [ ] 1.1 **Remove BaseService dependency from RBACService**
+- [x] 1.1 **Remove BaseService dependency from RBACService**
   - Remove `BaseService` import and inheritance from `rbac_service.py`
   - Remove database session management from RBAC core
   - Make RBACService database-agnostic (no direct DB dependencies)
   - Replace session management with optional provider pattern
 
-- [ ] 1.2 **Remove business-specific customer methods**
+- [x] 1.2 **Remove business-specific customer methods**
   - Remove `get_accessible_customers()` method completely from `rbac_service.py`
   - Remove `_customer_cache` and customer-related caching logic
   - Replace with generic `get_accessible_resources(user, resource_type)` method
   - Ensure no customer-specific concepts remain in core RBAC
 
-- [ ] 1.3 **Fix decorator service injection coupling**
+- [x] 1.3 **Fix decorator service injection coupling**
   - Remove global `rbac_service` import assumption in `rbac.py`
   - Implement dependency injection pattern for RBAC service in decorators
   - Create service registry or context-based service resolution
@@ -48,7 +50,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Support both explicit service passing and dependency injection
   - Maintain backward compatibility where possible
 
-- [ ] 1.4 **Remove hardcoded superadmin strings**
+- [x] 1.4 **Remove hardcoded superadmin strings**
   - Remove hardcoded "superadmin" string from ownership provider setup
   - Make superadmin role configurable through providers
   - Ensure all role names are data-driven, not hardcoded
@@ -71,27 +73,27 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Ensure all role names are data-driven, not hardcoded
   - Update all provider default configurations
 
-### 2. Implement Pure General RBAC Core
+- [x] 2. Implement Pure General RBAC Core
 
-- [ ] 2.1 **Create database-agnostic RBAC service**
+- [x] 2.1 **Create database-agnostic RBAC service**
   - Remove all database session dependencies from RBACService
   - Create optional database provider pattern for persistence needs
   - Implement pure in-memory RBAC service that works without databases
   - Ensure core RBAC logic is completely database-independent
 
-- [ ] 2.2 **Implement generic resource access methods**
+- [x] 2.2 **Implement generic resource access methods**
   - Replace `get_accessible_customers()` with `get_accessible_resources(user, resource_type)`
   - Create `can_access(user, resource, action)` method for generic access control
   - Implement `evaluate(user, privilege)` for generic privilege evaluation
   - Ensure all methods work with arbitrary resource types
 
-- [ ] 2.3 **Complete service injection for decorators**
+- [x] 2.3 **Complete service injection for decorators**
   - Implement dependency injection pattern for RBAC service in decorators
   - Create service registry or context-based service resolution
   - Remove global service assumptions from decorator implementation
   - Ensure decorators can work with multiple service instances
 
-### 3. Remove Database Dependencies and Business Layer Coupling
+- [ ] 3. Remove Database Dependencies and Business Layer Coupling
 
 - [ ] 3.1 **Remove base.py business layer dependency**
   - Delete or move `base.py` out of core RBAC package (it's business-specific)
@@ -111,7 +113,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Validate that system works with arbitrary configuration
   - Test with multiple different configuration scenarios
 
-### 4. Enhance and Validate Current Implementation
+- [ ] 4. Enhance and Validate Current Implementation
 
 - [ ] 4.1 **Validate dynamic role system works correctly**
   - Test `create_roles()` factory with various role configurations
@@ -131,7 +133,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Ensure configuration validation catches errors
   - Test hierarchical configuration loading
 
-### 5. Validate and Enhance Ownership System
+- [ ] 5. Validate and Enhance Ownership System
 
 - [ ] 5.1 **Validate ownership provider system works correctly**
   - Test `OwnershipRegistry` with various provider configurations
@@ -145,7 +147,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Test ownership providers with mock implementations
   - Validate ownership system is truly generic
 
-### 6. Create Test FastAPI Application
+- [ ] 6. Create Test FastAPI Application
 
 - [ ] 6.1 **Set up monorepo workspace structure**
   - Configure workspace with fastapi_role core package and test_fastapi application
@@ -168,7 +170,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Register providers with RBAC service
   - Test provider system with real application scenarios
 
-### 7. Create Example Applications
+- [ ] 7. Create Example Applications
 
 - [ ] 7.1 **Create minimal pure RBAC example**
   - Single-file FastAPI app with no business assumptions
@@ -187,7 +189,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Custom providers for database integration
   - Generic resource ownership patterns
 
-### 8. Finalize Production-Ready Package
+- [ ] 8. Finalize Production-Ready Package
 
 - [ ] 8.1 **Complete package metadata and structure**
   - Update pyproject.toml with correct dependencies and metadata
@@ -207,7 +209,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Implement automated PyPI publishing
   - Add security scanning and dependency checks
 
-### 9. COMPREHENSIVE TESTING: Ensure Robustness and Edge Cases
+- [ ] 9. COMPREHENSIVE TESTING: Ensure Robustness and Edge Cases
 
 - [ ] 9.1 **Test decorator architecture thoroughly**
   - Test @require decorator with all supported frameworks (FastAPI, Flask, Django)
@@ -242,7 +244,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Test provider configuration validation and error reporting
   - Test provider system with mock implementations and edge cases
 
-### 10. VALIDATION: Test Implementation (After Code is Complete)
+- [ ] 10. VALIDATION: Test Implementation (After Code is Complete)
 
 - [ ] 10.1 **Create comprehensive business-agnostic tests**
   - Test system works with arbitrary resource types
@@ -266,7 +268,7 @@ From comprehensive source code analysis, these **MUST BE FIXED IMMEDIATELY**:
   - Test setup time meets requirements (<15 minutes)
   - Validate examples demonstrate pure general RBAC principles
 
-### 11. Final Validation and Release
+- [ ] 11. Final Validation and Release
 
 - [ ] 11.1 **Perform final validation**
   - Run comprehensive test suite (ensure 202+ tests still pass)

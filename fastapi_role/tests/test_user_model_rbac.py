@@ -228,7 +228,7 @@ class TestUserRoleIntegration:
         from fastapi_role.rbac_service import RBACService
 
         # noinspection PyTypeChecker
-        RBACService(None)  # Mock DB session
+        RBACService(config=None)  # Mock config
 
         # Verify user properties are accessible for RBAC operations
         assert user.email is not None

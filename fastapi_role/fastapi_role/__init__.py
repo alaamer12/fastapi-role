@@ -4,6 +4,7 @@ This package provides a complete RBAC solution for FastAPI applications using Ca
 including decorators, template integration, and testing utilities.
 """
 from fastapi_role.core.config import CasbinConfig
+from fastapi_role.core.resource import ResourceRef, Permission as CorePermission, Privilege as CorePrivilege
 from fastapi_role.core.roles import create_roles, RoleRegistry
 from fastapi_role.rbac import (
     Permission,
@@ -11,6 +12,9 @@ from fastapi_role.rbac import (
     ResourceOwnership,
     RoleComposition,
     require,
+    set_rbac_service,
+    get_rbac_service,
+    rbac_service_context,
 )
 from fastapi_role.rbac_service import RBACService
 
@@ -22,9 +26,18 @@ __all__ = [
     "RoleRegistry",
     "CasbinConfig",
     "RoleComposition",
+    # Resource classes
+    "ResourceRef",
+    "CorePermission",
+    "CorePrivilege",
+    # Decorator classes (for backward compatibility)
     "Permission",
     "ResourceOwnership",
     "Privilege",
     "require",
+    # Service injection
+    "set_rbac_service",
+    "get_rbac_service", 
+    "rbac_service_context",
     "RBACService",
 ]

@@ -78,17 +78,25 @@ class CasbinConfig:
         model (casbin.model.Model): The Casbin model definition.
         policies (List[Policy]): List of permission policies.
         grouping_policies (List[GroupingPolicy]): List of role inheritance policies.
+        superadmin_role (Optional[str]): The role name that bypasses all access checks.
     """
 
-    def __init__(self, app_name: str = "fastapi-role", filepath: Optional[Path] = None):
+    def __init__(
+        self, 
+        app_name: str = "fastapi-role", 
+        filepath: Optional[Path] = None,
+        superadmin_role: Optional[str] = None
+    ):
         """Initializes the CasbinConfig with a default RBAC model.
         
         Args:
             app_name: Application name used for hashing directory path. Defaults to "fastapi-role".
             filepath: Custom file path for config files. If None, uses platformdirs with hashed app_name.
+            superadmin_role: Optional role name that bypasses all access checks. If None, no superadmin bypass.
         """
         self.app_name = app_name
         self.filepath = filepath if filepath else self._get_default_filepath()
+        self.superadmin_role = superadmin_role
         self.model = casbin.model.Model()
         self.policies: List[Policy] = []
         self.grouping_policies: List[GroupingPolicy] = []

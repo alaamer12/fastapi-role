@@ -20,9 +20,10 @@ class TestGenericFilteringPerformance:
     @pytest.fixture
     def rbac_service(self):
         """Create RBAC service with mocked database."""
-        mock_db = AsyncMock()
+        from fastapi_role.core.config import CasbinConfig
+        config = CasbinConfig(superadmin_role="superadmin")
         with patch("casbin.Enforcer"):
-            service = RBACService(mock_db)
+            service = RBACService(config=config)
             service.enforcer = MagicMock()
             return service
 

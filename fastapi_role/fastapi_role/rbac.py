@@ -11,6 +11,7 @@ Features:
     - Automatic resource ownership validation.
     - Query filtering for data access control.
     - Template integration for UI permission checks.
+    - Dependency injection support for RBAC service.
 """
 
 from __future__ import annotations
@@ -28,17 +29,171 @@ from fastapi_role.core.composition import RoleComposition
 # Import core components
 from fastapi_role.protocols import UserProtocol
 
-# Forward reference for circular import handling if needed,
-# though we import RBACService above.
+# Service registry for dependency injection
+_service_registry: dict[str, Any] = {}
+_service_stack: list[Any] = []  # Stack for nested service contexts
+
 
 __all__ = [
     "Permission",
-    "ResourceOwnership",
+    "ResourceOwnership", 
     "Privilege",
     "require",
+    "set_rbac_service",
+    "get_rbac_service",
+    "rbac_service_context",
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def set_rbac_service(service: Any, name: str = "default") -> None:
+    """Register an RBAC service instance for dependency injection.
+    
+    Args:
+        service: The RBAC service instance
+        name: Optional name for the service (default: "default")
+    """
+    _service_registry[name] = service
+
+
+def get_rbac_service(name: str = "default") -> Any:
+    """Get a registered RBAC service instance.
+    
+    Args:
+        name: Name of the service to retrieve (default: "default")
+        
+    Returns:
+        The registered RBAC service instance
+        
+    Raises:
+        ValueError: If no service is registered with the given name
+    """
+    # Check service stack first (for context managers)
+    if _service_stack:
+        return _service_stack[-1]
+        
+    if name not in _service_registry:
+        raise ValueError(f"No RBAC service registered with name '{name}'")
+    return _service_registry[name]
+
+
+class rbac_service_context:
+    """Context manager for scoped RBAC service injection.
+    
+    This allows temporary service injection that automatically cleans up:
+    
+    Example:
+        with rbac_service_context(my_service):
+            # All @require decorators in this block will use my_service
+            result = protected_function()
+    """
+    
+    def __init__(self, service: Any):
+        """Initialize context with service.
+        
+        Args:
+            service: RBAC service instance to use in this context
+            
+        Raises:
+            ValueError: If service doesn't look like an RBAC service
+        """
+        if not _is_rbac_service_like(service):
+            raise ValueError("Provided service doesn't implement required RBAC methods")
+        self.service = service
+    
+    def __enter__(self):
+        """Enter context and push service onto stack."""
+        _service_stack.append(self.service)
+        return self.service
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context and pop service from stack."""
+        if _service_stack:
+            _service_stack.pop()
+
+
+def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
+    """Extract RBAC service from function arguments or registry.
+    
+    Supports multiple injection patterns in order of preference:
+    1. Explicit service parameter (rbac_service, rbac)
+    2. Service registry lookup (set via set_rbac_service())
+    3. Service-like object in positional arguments
+    4. Global fallback (for backward compatibility)
+    
+    Args:
+        args: Function positional arguments
+        kwargs: Function keyword arguments
+        
+    Returns:
+        RBAC service instance
+        
+    Raises:
+        ValueError: If no RBAC service is available through any pattern
+    """
+    # Pattern 1: Check for explicit service in kwargs
+    for param_name in ["rbac_service", "rbac"]:
+        if param_name in kwargs and kwargs[param_name] is not None:
+            service = kwargs[param_name]
+            if _is_rbac_service_like(service):
+                return service
+    
+    # Pattern 2: Check positional arguments for service-like objects
+    for arg in args:
+        if _is_rbac_service_like(arg):
+            return arg
+    
+    # Pattern 3: Try service registry (includes service stack)
+    try:
+        service = get_rbac_service()
+        if _is_rbac_service_like(service):
+            return service
+    except ValueError:
+        pass
+    
+    # Pattern 4: Fallback to global import (backward compatibility)
+    try:
+        from fastapi_role.rbac_service import rbac_service
+        if rbac_service is not None and _is_rbac_service_like(rbac_service):
+            return rbac_service
+    except ImportError:
+        pass
+    
+    raise ValueError(
+        "No RBAC service available. Please use one of these patterns:\n"
+        "1. Pass rbac_service as a parameter: func(..., rbac_service=service)\n"
+        "2. Register a service: set_rbac_service(service)\n"
+        "3. Pass service as positional argument\n"
+        "4. Ensure a global rbac_service is available"
+    )
+
+
+def _is_rbac_service_like(obj: Any) -> bool:
+    """Check if object looks like an RBAC service.
+    
+    Args:
+        obj: Object to check
+        
+    Returns:
+        True if object has RBAC service methods, False otherwise
+    """
+    if obj is None:
+        return False
+        
+    # Check for required RBAC service methods
+    required_methods = ['check_permission', 'check_resource_ownership']
+    
+    try:
+        for method_name in required_methods:
+            if not hasattr(obj, method_name):
+                return False
+            method = getattr(obj, method_name)
+            if not callable(method):
+                return False
+        return True
+    except (AttributeError, TypeError):
+        return False
 
 
 class Permission:
@@ -170,11 +325,18 @@ def require(*requirements) -> Callable:
             if not user:
                 raise HTTPException(status_code=401, detail="Authentication required")
 
+            # Get RBAC service from context
+            try:
+                rbac_service = _get_rbac_service_from_context(args, kwargs)
+            except ValueError as e:
+                logger.error(f"RBAC service injection failed: {e}")
+                raise HTTPException(status_code=500, detail="RBAC service not available")
+
             # Evaluate requirements with OR logic between decorator groups
             for requirement_group in all_requirements:
                 try:
                     if await _evaluate_requirement_group(
-                        user, requirement_group, original_func, args, kwargs
+                        user, requirement_group, original_func, args, kwargs, rbac_service
                     ):
                         # At least one requirement group satisfied - allow access
                         logger.debug(f"Access granted to {user.email} for {original_func.__name__}")
@@ -200,7 +362,7 @@ def require(*requirements) -> Callable:
 
 
 async def _evaluate_requirement_group(
-        user: UserProtocol, requirements: tuple, func: Callable, args: tuple, kwargs: dict
+        user: UserProtocol, requirements: tuple, func: Callable, args: tuple, kwargs: dict, rbac_service: Any
 ) -> bool:
     """Evaluate a single requirement group with AND logic."""
     has_role_requirement = False
@@ -210,20 +372,6 @@ async def _evaluate_requirement_group(
     role_satisfied = True
     permission_satisfied = True
     ownership_satisfied = True
-
-    # We need access to the RBAC service.
-    # Current design implies a global 'rbac_service' or one imported from app.core.rbac.
-    # In this new design, we should probably resolve it from app dependency or context.
-    # For compatibility, we'll try to import it from main location or assume it's injected.
-    # For now, we will assume `from fastapi_role.rbac_service import rbac_service` is how it is used?
-    # No, typically it is `app.core.rbac.rbac_service`.
-    # We will assume a global rbac_service instance is available or passed.
-    # Since we can't easily change the signature of the decorator, we rely on the import.
-
-    # FIXME: This is a coupling point.
-    # We will assume the service is available at runtime.
-
-    from fastapi_role.rbac_service import rbac_service  # Local import to avoid circular dep
 
     for requirement in requirements:
         if isinstance(requirement, (Enum, RoleComposition, list)):

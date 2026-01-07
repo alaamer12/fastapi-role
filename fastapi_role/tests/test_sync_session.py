@@ -192,7 +192,7 @@ class TestRBACServiceSyncSession:
     @pytest.fixture
     def rbac_service(self, sync_session, casbin_config):
         """Create RBACService with sync session."""
-        return RBACService(sync_session, config=casbin_config)
+        return RBACService(config=casbin_config)
 
     def test_init_with_sync_session(self, rbac_service, sync_session):
         """Test RBACService initialization with sync session."""
@@ -241,7 +241,7 @@ class TestRBACServiceAsyncSession:
     @pytest.fixture
     def rbac_service(self, async_session, casbin_config):
         """Create RBACService with async session."""
-        return RBACService(async_session, config=casbin_config)
+        return RBACService(config=casbin_config)
 
     def test_init_with_async_session(self, rbac_service, async_session):
         """Test RBACService initialization with async session."""

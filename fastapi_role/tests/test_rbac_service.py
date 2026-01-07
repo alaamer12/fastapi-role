@@ -26,8 +26,10 @@ class TestRBACService:
     @pytest.fixture
     def rbac_service(self, mock_db):
         """Create RBACService instance with mocked dependencies."""
+        from fastapi_role.core.config import CasbinConfig
+        config = CasbinConfig(superadmin_role="superadmin")
         with patch("casbin.Enforcer") as mock_enforcer:
-            service = RBACService(mock_db)
+            service = RBACService(config=config)
             service.enforcer = mock_enforcer.return_value
             return service
 

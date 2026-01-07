@@ -25,14 +25,14 @@ class DefaultOwnershipProvider:
 
     def __init__(
         self,
-        superadmin_role: str = "superadmin",
+        superadmin_role: Optional[str] = None,
         default_allow: bool = False,
         allowed_roles: Optional[Set[str]] = None,
     ):
         """Initialize the default ownership provider.
         
         Args:
-            superadmin_role: Role name that bypasses all ownership checks.
+            superadmin_role: Role name that bypasses all ownership checks. If None, no superadmin bypass.
             default_allow: Default behavior when user is not superadmin.
             allowed_roles: Optional set of roles that are always allowed access.
         """
@@ -53,8 +53,8 @@ class DefaultOwnershipProvider:
         Returns:
             bool: True if user has ownership/access, False otherwise.
         """
-        # Superadmin bypass
-        if user.role == self.superadmin_role:
+        # Superadmin bypass (only if superadmin_role is configured)
+        if self.superadmin_role and user.role == self.superadmin_role:
             return True
         
         # Check allowed roles
@@ -98,11 +98,11 @@ class DefaultRoleProvider:
     Extracts and validates user roles with optional superadmin bypass.
     """
 
-    def __init__(self, superadmin_role: str = "superadmin"):
+    def __init__(self, superadmin_role: Optional[str] = None):
         """Initialize the default role provider.
         
         Args:
-            superadmin_role: Role name that has all permissions.
+            superadmin_role: Role name that has all permissions. If None, no superadmin bypass.
         """
         self.superadmin_role = superadmin_role
 
@@ -120,7 +120,7 @@ class DefaultRoleProvider:
     def has_role(self, user: UserProtocol, role_name: str) -> bool:
         """Check if user has the specified role.
         
-        Superadmin role always returns True for any role check.
+        Superadmin role always returns True for any role check (if configured).
         
         Args:
             user: The user object to check.
@@ -129,8 +129,8 @@ class DefaultRoleProvider:
         Returns:
             bool: True if user has the role, False otherwise.
         """
-        # Superadmin bypass
-        if user.role == self.superadmin_role:
+        # Superadmin bypass (only if superadmin_role is configured)
+        if self.superadmin_role and user.role == self.superadmin_role:
             return True
         
         # Direct role comparison
