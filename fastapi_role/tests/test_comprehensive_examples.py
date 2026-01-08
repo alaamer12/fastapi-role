@@ -42,13 +42,13 @@ class TestMinimalExample:
     def test_minimal_example_exists(self):
         """Test that minimal example file exists."""
         
-        example_path = Path("examples/minimal_rbac_example.py")
+        example_path = Path("../examples/minimal_rbac_example.py")
         assert example_path.exists(), "Minimal example file should exist"
 
     def test_minimal_example_imports(self):
         """Test that minimal example has correct imports."""
         
-        example_path = Path("examples/minimal_rbac_example.py")
+        example_path = Path("../examples/minimal_rbac_example.py")
         
         if example_path.exists():
             content = example_path.read_text()
@@ -67,7 +67,7 @@ class TestMinimalExample:
     def test_minimal_example_structure(self):
         """Test that minimal example has proper structure."""
         
-        example_path = Path("examples/minimal_rbac_example.py")
+        example_path = Path("../examples/minimal_rbac_example.py")
         
         if example_path.exists():
             content = example_path.read_text()
@@ -119,7 +119,7 @@ class TestMinimalExample:
     def test_minimal_example_no_business_coupling(self):
         """Test that minimal example has no business coupling."""
         
-        example_path = Path("examples/minimal_rbac_example.py")
+        example_path = Path("../examples/minimal_rbac_example.py")
         
         if example_path.exists():
             content = example_path.read_text().lower()
@@ -136,7 +136,7 @@ class TestMinimalExample:
     def test_minimal_example_setup_simplicity(self):
         """Test that minimal example is simple to set up."""
         
-        example_path = Path("examples/minimal_rbac_example.py")
+        example_path = Path("../examples/minimal_rbac_example.py")
         
         if example_path.exists():
             content = example_path.read_text()
@@ -163,8 +163,8 @@ class TestFileBasedExample:
     def test_file_based_example_exists(self):
         """Test that file-based example exists."""
         
-        example_path = Path("examples/file_based_rbac_example.py")
-        config_path = Path("examples/config")
+        example_path = Path("../examples/file_based_rbac_example.py")
+        config_path = Path("../examples/config")
         
         assert example_path.exists(), "File-based example should exist"
         assert config_path.exists(), "Configuration directory should exist"
@@ -173,10 +173,10 @@ class TestFileBasedExample:
         """Test that all required configuration files exist."""
         
         config_files = [
-            "examples/config/roles.yaml",
-            "examples/config/policies.yaml", 
-            "examples/config/resources.yaml",
-            "examples/config/users.yaml"
+            "../examples/config/roles.yaml",
+            "../examples/config/policies.yaml", 
+            "../examples/config/resources.yaml",
+            "../examples/config/users.yaml"
         ]
         
         for config_file in config_files:
@@ -186,7 +186,7 @@ class TestFileBasedExample:
     def test_configuration_file_structure(self):
         """Test that configuration files have proper structure."""
         
-        roles_path = Path("examples/config/roles.yaml")
+        roles_path = Path("../examples/config/roles.yaml")
         
         if roles_path.exists():
             content = roles_path.read_text()
@@ -202,7 +202,7 @@ class TestFileBasedExample:
     def test_file_based_example_loads_configuration(self):
         """Test that file-based example loads configuration correctly."""
         
-        example_path = Path("examples/file_based_rbac_example.py")
+        example_path = Path("../examples/file_based_rbac_example.py")
         
         if example_path.exists():
             content = example_path.read_text()
@@ -252,7 +252,7 @@ class TestFileBasedExample:
     def test_file_based_example_demonstrates_flexibility(self):
         """Test that file-based example demonstrates configuration flexibility."""
         
-        example_path = Path("examples/file_based_rbac_example.py")
+        example_path = Path("../examples/file_based_rbac_example.py")
         
         if example_path.exists():
             content = example_path.read_text()
@@ -275,13 +275,13 @@ class TestDatabaseExample:
         """Test that database example exists."""
         
         # Check for database example in test_fastapi directory
-        test_app_path = Path("test_fastapi")
+        test_app_path = Path("../test_fastapi")
         assert test_app_path.exists(), "Test FastAPI application should exist"
 
     def test_database_example_structure(self):
         """Test that database example has proper structure."""
         
-        test_app_path = Path("test_fastapi/test_fastapi")
+        test_app_path = Path("../test_fastapi/test_fastapi")
         
         if test_app_path.exists():
             # Should have main application file
@@ -299,7 +299,7 @@ class TestDatabaseExample:
     def test_database_example_uses_generic_models(self):
         """Test that database example uses generic models."""
         
-        models_path = Path("test_fastapi/test_fastapi/models.py")
+        models_path = Path("../test_fastapi/test_fastapi/models.py")
         
         if models_path.exists():
             content = models_path.read_text()
@@ -317,7 +317,7 @@ class TestDatabaseExample:
     def test_database_example_custom_providers(self):
         """Test that database example implements custom providers."""
         
-        ownership_path = Path("test_fastapi/test_fastapi/ownership_providers.py")
+        ownership_path = Path("../test_fastapi/test_fastapi/ownership_providers.py")
         
         if ownership_path.exists():
             content = ownership_path.read_text()
@@ -339,8 +339,20 @@ class TestDatabaseExample:
         if main_path.exists():
             content = main_path.read_text()
             
-            # Should have protected endpoints
-            assert "@require" in content
+            # Check routers for @require decorators since main.py imports them
+            routers_path = Path("test_fastapi/test_fastapi/routers")
+            has_require_decorators = False
+            
+            if routers_path.exists():
+                for router_file in routers_path.glob("*.py"):
+                    if router_file.name != "__init__.py":
+                        router_content = router_file.read_text()
+                        if "@require" in router_content:
+                            has_require_decorators = True
+                            break
+            
+            # Should have protected endpoints (in routers)
+            assert has_require_decorators, "Should have @require decorators in router files"
             
             # Should have CRUD operations
             crud_operations = ["GET", "POST", "PUT", "DELETE"]
@@ -367,7 +379,19 @@ class TestDatabaseExample:
                     
                     # Should demonstrate service injection
                     if filename == "main.py":
-                        assert "rbac_service" in content.lower()
+                        # Check if main.py imports routers that use rbac_service
+                        routers_path = test_app_path / "routers"
+                        has_rbac_service = False
+                        
+                        if routers_path.exists():
+                            for router_file in routers_path.glob("*.py"):
+                                if router_file.name != "__init__.py":
+                                    router_content = router_file.read_text()
+                                    if "rbac_service" in router_content.lower():
+                                        has_rbac_service = True
+                                        break
+                        
+                        assert has_rbac_service, "Should have rbac_service usage in router files"
 
 
 class TestExampleSetupTime:
@@ -379,7 +403,7 @@ class TestExampleSetupTime:
     def test_minimal_example_quick_setup(self):
         """Test that minimal example can be set up quickly."""
         
-        example_path = Path("examples/minimal_rbac_example.py")
+        example_path = Path("../examples/minimal_rbac_example.py")
         
         if example_path.exists():
             # Measure time to read and parse the file
@@ -405,7 +429,7 @@ class TestExampleSetupTime:
     def test_file_based_example_reasonable_setup(self):
         """Test that file-based example has reasonable setup time."""
         
-        config_dir = Path("examples/config")
+        config_dir = Path("../examples/config")
         
         if config_dir.exists():
             start_time = time.time()
@@ -427,7 +451,7 @@ class TestExampleSetupTime:
     def test_database_example_setup_complexity(self):
         """Test that database example setup is not overly complex."""
         
-        test_app_path = Path("test_fastapi")
+        test_app_path = Path("../test_fastapi")
         
         if test_app_path.exists():
             # Count setup files
@@ -452,8 +476,8 @@ class TestExampleSetupTime:
         """Test that examples have complete documentation."""
         
         readme_files = [
-            "examples/README_minimal.md",
-            "examples/README_file_based.md"
+            "../examples/README_minimal.md",
+            "../examples/README_file_based.md"
         ]
         
         for readme_file in readme_files:
@@ -478,8 +502,8 @@ class TestExampleDocumentation:
         """Test that example files have proper docstrings."""
         
         example_files = [
-            "examples/minimal_rbac_example.py",
-            "examples/file_based_rbac_example.py"
+            "../examples/minimal_rbac_example.py",
+            "../examples/file_based_rbac_example.py"
         ]
         
         for example_file in example_files:
@@ -497,8 +521,8 @@ class TestExampleDocumentation:
         """Test that examples have helpful comments."""
         
         example_files = [
-            "examples/minimal_rbac_example.py",
-            "examples/file_based_rbac_example.py"
+            "../examples/minimal_rbac_example.py",
+            "../examples/file_based_rbac_example.py"
         ]
         
         for example_file in example_files:
@@ -520,8 +544,8 @@ class TestExampleDocumentation:
         """Test that examples demonstrate key RBAC concepts."""
         
         example_files = [
-            "examples/minimal_rbac_example.py",
-            "examples/file_based_rbac_example.py"
+            "../examples/minimal_rbac_example.py",
+            "../examples/file_based_rbac_example.py"
         ]
         
         key_concepts = [
@@ -548,8 +572,8 @@ class TestExampleDocumentation:
         """Test that examples show RBAC best practices."""
         
         example_files = [
-            "examples/minimal_rbac_example.py",
-            "examples/file_based_rbac_example.py"
+            "../examples/minimal_rbac_example.py",
+            "../examples/file_based_rbac_example.py"
         ]
         
         for example_file in example_files:
@@ -570,8 +594,8 @@ class TestExampleDocumentation:
         """Test that configuration examples are clear and well-documented."""
         
         config_files = [
-            "examples/config/roles.yaml",
-            "examples/config/policies.yaml"
+            "../examples/config/roles.yaml",
+            "../examples/config/policies.yaml"
         ]
         
         for config_file in config_files:
@@ -593,8 +617,8 @@ class TestExampleDocumentation:
         """Test that examples include clear usage instructions."""
         
         example_files = [
-            "examples/minimal_rbac_example.py",
-            "examples/file_based_rbac_example.py"
+            "../examples/minimal_rbac_example.py",
+            "../examples/file_based_rbac_example.py"
         ]
         
         for example_file in example_files:

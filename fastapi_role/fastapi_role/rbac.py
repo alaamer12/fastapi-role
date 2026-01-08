@@ -113,17 +113,19 @@ class rbac_service_context:
             _service_stack.pop()
 
 
-def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
+def _get_rbac_service_from_context(args: tuple, kwargs: dict, func: Callable = None) -> Any:
     """Extract RBAC service from function arguments or registry.
     
     Supports multiple injection patterns by priority:
     1. Explicit service parameter (rbac_service, rbac)
     2. Service registry lookup (set via set_rbac_service())
     3. Service-like object in positional arguments
+    4. Parameter name-based detection (if function signature is available)
     
     Args:
         args: Function positional arguments
         kwargs: Function keyword arguments
+        func: Function object for parameter name introspection (optional)
         
     Returns:
         RBAC service instance
@@ -135,15 +137,50 @@ def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
     for param_name in ["rbac_service", "rbac"]:
         if param_name in kwargs and kwargs[param_name] is not None:
             service = kwargs[param_name]
-            if _is_rbac_service_like(service):
-                return service
+            try:
+                if _is_rbac_service_like(service, strict=True):
+                    return service
+            except ValueError as e:
+                # Invalid service provided explicitly - this is a service error
+                raise ValueError(f"Invalid RBAC service provided as {param_name}: {e}")
     
-    # Pattern 2: Check positional arguments for service-like objects
+    # Pattern 2: Check positional arguments by parameter name (if function is available)
+    if func:
+        try:
+            import inspect
+            sig = inspect.signature(func)
+            param_names = list(sig.parameters.keys())
+            
+            for i, (param_name, arg) in enumerate(zip(param_names, args)):
+                if param_name in ["rbac_service", "rbac"]:
+                    if arg is None:
+                        raise ValueError(f"Invalid RBAC service provided as {param_name}: RBAC service cannot be None")
+                    else:
+                        try:
+                            if _is_rbac_service_like(arg, strict=True):
+                                return arg
+                        except ValueError as e:
+                            # Invalid service provided as rbac_service parameter - this is a service error
+                            raise ValueError(f"Invalid RBAC service provided as {param_name}: {e}")
+        except ValueError:
+            # Re-raise ValueError (service validation errors)
+            raise
+        except Exception as e:
+            # If introspection fails for other reasons, continue with other patterns
+            pass
+    
+    # Pattern 3: Check positional arguments for service-like objects
+    # Be more aggressive about validating objects that might be intended as services
     for arg in args:
-        if _is_rbac_service_like(arg):
-            return arg
+        try:
+            if _is_rbac_service_like(arg):
+                return arg
+        except ValueError as e:
+            # This argument failed service validation - if it looks like it was intended
+            # to be a service, raise an error instead of continuing
+            raise ValueError(f"Invalid RBAC service in arguments: {e}")
     
-    # Pattern 3: Try service registry (includes service stack)
+    # Pattern 4: Try service registry (includes service stack)
     try:
         service = get_rbac_service()
         if _is_rbac_service_like(service):
@@ -159,31 +196,73 @@ def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
     )
 
 
-def _is_rbac_service_like(obj: Any) -> bool:
+def _is_rbac_service_like(obj: Any, strict: bool = False) -> bool:
     """Check if object looks like an RBAC service.
     
     Args:
         obj: Object to check
+        strict: If True, raise exceptions for objects that don't meet RBAC service requirements
         
     Returns:
         True if object has RBAC service methods, False otherwise
+        
+    Raises:
+        ValueError: If object has methods but they're not callable or properly implemented,
+                   or if strict=True and object doesn't meet requirements
     """
     if obj is None:
+        if strict:
+            raise ValueError("RBAC service cannot be None")
+        return False
+    
+    # Skip obviously non-service objects (unless in strict mode)
+    if isinstance(obj, (str, int, float, bool, list, dict, tuple)):
+        if strict:
+            raise ValueError(f"RBAC service cannot be a {type(obj).__name__}")
         return False
         
     # Check for required RBAC service methods
     required_methods = ['check_permission', 'check_resource_ownership']
     
     try:
+        missing_methods = []
         for method_name in required_methods:
             if not hasattr(obj, method_name):
-                return False
-            method = getattr(obj, method_name)
-            if not callable(method):
-                return False
+                missing_methods.append(method_name)
+            else:
+                method = getattr(obj, method_name)
+                if not callable(method):
+                    if strict:
+                        raise ValueError(f"RBAC service method '{method_name}' is not callable")
+                    else:
+                        return False
+        
+        if missing_methods:
+            if strict:
+                raise ValueError(f"RBAC service missing required methods: {', '.join(missing_methods)}")
+            else:
+                # In non-strict mode, check if this object has any RBAC-like methods or attributes
+                # that suggest it was intended to be an RBAC service
+                rbac_indicators = ['check_permission', 'check_resource_ownership', 'rbac', 'permission', 'authorization']
+                has_rbac_indicators = any(
+                    any(indicator in attr_name.lower() for indicator in rbac_indicators)
+                    for attr_name in dir(obj)
+                    if not attr_name.startswith('_')
+                )
+                
+                if has_rbac_indicators or any(hasattr(obj, m) for m in required_methods):
+                    # This looks like it was intended to be an RBAC service but is incomplete
+                    # In non-strict mode, we return False but could log a warning
+                    return False
+                else:
+                    return False
+        
         return True
-    except (AttributeError, TypeError):
-        return False
+    except (AttributeError, TypeError) as e:
+        if strict:
+            raise ValueError(f"Invalid RBAC service: {e}")
+        else:
+            return False
 
 
 class Permission:
@@ -317,24 +396,30 @@ def require(*requirements) -> Callable:
 
             # Get RBAC service from context
             try:
-                rbac_service = _get_rbac_service_from_context(args, kwargs)
+                rbac_service = _get_rbac_service_from_context(args, kwargs, original_func)
             except ValueError as e:
                 logger.error(f"RBAC service injection failed: {e}")
                 raise HTTPException(status_code=500, detail="RBAC service not available")
 
             # Evaluate requirements with OR logic between decorator groups
+            access_granted = False
             for requirement_group in all_requirements:
                 try:
                     if await _evaluate_requirement_group(
                         user, requirement_group, original_func, args, kwargs, rbac_service
                     ):
                         # At least one requirement group satisfied - allow access
-                        logger.debug(f"Access granted to {user.email} for {original_func.__name__}")
-                        # Call the original unwrapped function to avoid recursion
-                        return await original_func(*args, **kwargs)
+                        access_granted = True
+                        break
                 except Exception as e:
                     logger.error(f"Requirement evaluation error: {e}")
                     continue
+
+            if access_granted:
+                logger.debug(f"Access granted to {user.email} for {original_func.__name__}")
+                # Call the original unwrapped function to avoid recursion
+                # This is outside the requirement evaluation try-catch so function errors are not caught
+                return await original_func(*args, **kwargs)
 
             # No requirement group satisfied - deny access
             logger.warning(f"Access denied to {user.email} for {original_func.__name__}")
@@ -437,9 +522,14 @@ async def _check_role_requirement(
 
 async def _check_permission_requirement(service, user: UserProtocol, permission: Permission) -> bool:
     """Check permission requirement."""
-    return await service.check_permission(
-        user, permission.resource, permission.action, permission.context
-    )
+    try:
+        return await service.check_permission(
+            user, permission.resource, permission.action, permission.context
+        )
+    except Exception as e:
+        # Service method failed - this is a service error, not an authorization failure
+        logger.error(f"Permission check failed due to service error: {e}")
+        raise HTTPException(status_code=500, detail=f"RBAC service error: {e}")
 
 
 async def _check_ownership_requirement(
@@ -452,7 +542,12 @@ async def _check_ownership_requirement(
         logger.warning(f"Could not extract {ownership.id_param} from {func.__name__} parameters")
         return False
 
-    return await service.check_resource_ownership(user, ownership.resource_type, resource_id)
+    try:
+        return await service.check_resource_ownership(user, ownership.resource_type, resource_id)
+    except Exception as e:
+        # Service method failed - this is a service error, not an authorization failure
+        logger.error(f"Ownership check failed due to service error: {e}")
+        raise HTTPException(status_code=500, detail=f"RBAC service error: {e}")
 
 
 async def _check_privilege_requirement(

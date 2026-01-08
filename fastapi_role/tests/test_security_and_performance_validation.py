@@ -117,15 +117,24 @@ class TestAuthorizationBypassPrevention:
     async def test_no_service_bypass(self, test_user):
         """Test that missing RBAC service cannot be bypassed."""
         
-        @require(Permission("sensitive", "access"))
-        async def sensitive_function(*, current_user, rbac_service):
-            return "sensitive_data_accessed"
-
-        # Attempt to call with None service should fail
-        with pytest.raises(HTTPException) as exc_info:
-            await sensitive_function(current_user=test_user, rbac_service=None)
+        # Clear the global service registry to ensure no service is available
+        from fastapi_role.rbac import _service_registry
+        original_registry = _service_registry.copy()
+        _service_registry.clear()
         
-        assert exc_info.value.status_code == 500
+        try:
+            @require(Permission("sensitive", "access"))
+            async def sensitive_function(*, current_user, rbac_service):
+                return "sensitive_data_accessed"
+
+            # Attempt to call with None service should fail
+            with pytest.raises(HTTPException) as exc_info:
+                await sensitive_function(current_user=test_user, rbac_service=None)
+            
+            assert exc_info.value.status_code == 500
+        finally:
+            # Restore the original registry
+            _service_registry.update(original_registry)
 
     @pytest.mark.asyncio
     async def test_no_permission_bypass_with_wrong_parameters(self, test_user, secure_rbac_service):
@@ -666,11 +675,11 @@ class TestConcurrentAccessSafety:
         async def read_operation(user_id: int, *, current_user, rbac_service):
             return f"read_{user_id}"
         
-        @require(ResourceOwnership("document"))
+        @require(ResourceOwnership("document", "doc_id"))
         async def ownership_operation(doc_id: int, *, current_user, rbac_service):
             return f"own_{doc_id}"
         
-        @require(Permission("documents", "write"), ResourceOwnership("document"))
+        @require(Permission("documents", "write"), ResourceOwnership("document", "item_id"))
         async def complex_operation(item_id: int, *, current_user, rbac_service):
             return f"complex_{item_id}"
 

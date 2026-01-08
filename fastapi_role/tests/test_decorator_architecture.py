@@ -531,14 +531,23 @@ class TestDecoratorErrorHandling:
     async def test_no_service_available_handling(self, user):
         """Test decorator behavior when no service is available."""
         
-        @require(Permission("no", "service"))
-        async def no_service_function(current_user: User):
-            return f"should_not_reach_here"
+        # Clear the global service registry to simulate no service available
+        from fastapi_role.rbac import _service_registry
+        original_registry = _service_registry.copy()
+        _service_registry.clear()
+        
+        try:
+            @require(Permission("no", "service"))
+            async def no_service_function(current_user: User):
+                return f"should_not_reach_here"
 
-        # No service registered or passed
-        with pytest.raises(HTTPException) as exc_info:
-            await no_service_function(user)
-        assert exc_info.value.status_code == 500
+            # No service registered or passed
+            with pytest.raises(HTTPException) as exc_info:
+                await no_service_function(user)
+            assert exc_info.value.status_code == 500
+        finally:
+            # Restore the original registry
+            _service_registry.update(original_registry)
 
     @pytest.mark.asyncio
     async def test_service_error_handling(self, user):

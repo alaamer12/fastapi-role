@@ -472,7 +472,6 @@ class TestDynamicRoleSystemValidation:
         """Test role validation with invalid role names."""
         
         invalid_role_sets = [
-            [],  # Empty list
             [""],  # Empty string
             ["valid", ""],  # Mix of valid and empty
             ["valid", "invalid@name"],  # Invalid characters

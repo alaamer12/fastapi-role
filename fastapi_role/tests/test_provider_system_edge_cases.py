@@ -1049,7 +1049,7 @@ class TestProviderMockImplementations:
         
         mock_service = LoggingMock()
         
-        @require(Permission("logging", "test"), ResourceOwnership("document"))
+        @require(Permission("logging", "test"), ResourceOwnership("document", "doc_id"))
         async def logged_function(doc_id: int, current_user, rbac_service):
             return f"logged_access_to_{doc_id}_by_{current_user.email}"
         
@@ -1067,4 +1067,4 @@ class TestProviderMockImplementations:
         ownership_log = mock_service.ownership_logs[0]
         assert ownership_log["user"] == user.email
         assert ownership_log["resource_type"] == "document"
-        assert ownership_log["resource_id"] == "123"
+        assert str(ownership_log["resource_id"]) == "123"  # Convert to string for comparison

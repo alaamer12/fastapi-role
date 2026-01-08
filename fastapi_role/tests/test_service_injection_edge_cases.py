@@ -81,15 +81,24 @@ class TestServiceAvailability:
     async def test_no_service_available_error(self, user):
         """Test decorator behavior when no service is available."""
         
-        @require(Role.CUSTOMER)
-        async def function_without_service(current_user: User):
-            return "success"
-
-        with pytest.raises(HTTPException) as exc_info:
-            await function_without_service(user)
+        # Clear the global service registry to simulate no service available
+        from fastapi_role.rbac import _service_registry
+        original_registry = _service_registry.copy()
+        _service_registry.clear()
         
-        assert exc_info.value.status_code == 500
-        assert "RBAC service not available" in exc_info.value.detail
+        try:
+            @require(Role.CUSTOMER)
+            async def function_without_service(current_user: User):
+                return "success"
+
+            with pytest.raises(HTTPException) as exc_info:
+                await function_without_service(user)
+            
+            assert exc_info.value.status_code == 500
+            assert "RBAC service not available" in exc_info.value.detail
+        finally:
+            # Restore the original registry
+            _service_registry.update(original_registry)
 
     @pytest.mark.asyncio
     async def test_service_available_via_registry(self, user):
@@ -338,7 +347,7 @@ class TestServiceInjectionErrors:
         
         invalid_service = InvalidService()
         
-        @require(Role.CUSTOMER)
+        @require(Permission("test", "action"))  # Use permission to trigger service validation
         async def function_with_invalid_service(current_user: User, rbac_service: InvalidService):
             return "success"
 
@@ -353,7 +362,7 @@ class TestServiceInjectionErrors:
         
         partial_service = PartialService()
         
-        @require(Role.CUSTOMER)
+        @require(Permission("test", "action"))  # Use permission to trigger service validation
         async def function_with_partial_service(current_user: User, rbac_service: PartialService):
             return "success"
 
@@ -366,7 +375,7 @@ class TestServiceInjectionErrors:
     async def test_none_service_parameter_error(self, user):
         """Test error when None is passed as service parameter."""
         
-        @require(Role.CUSTOMER)
+        @require(Permission("test", "action"))  # Use permission to trigger service validation
         async def function_with_none_service(current_user: User, rbac_service: None):
             return "success"
 
@@ -416,15 +425,24 @@ class TestServiceInjectionErrors:
     async def test_detailed_error_messages(self, user):
         """Test that error messages provide helpful debugging information."""
         
-        @require(Role.CUSTOMER)
-        async def function_without_any_service(current_user: User):
-            return "success"
-
-        with pytest.raises(HTTPException) as exc_info:
-            await function_without_any_service(user)
+        # Clear the global service registry to simulate no service available
+        from fastapi_role.rbac import _service_registry
+        original_registry = _service_registry.copy()
+        _service_registry.clear()
         
-        error_detail = exc_info.value.detail
-        assert "RBAC service not available" in error_detail
+        try:
+            @require(Permission("test", "action"))  # Use permission instead of role
+            async def function_without_any_service(current_user: User):
+                return "success"
+
+            with pytest.raises(HTTPException) as exc_info:
+                await function_without_any_service(user)
+            
+            error_detail = exc_info.value.detail
+            assert "RBAC service not available" in error_detail
+        finally:
+            # Restore the original registry
+            _service_registry.update(original_registry)
 
     @pytest.mark.asyncio
     async def test_service_injection_parameter_patterns(self, user):
