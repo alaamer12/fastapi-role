@@ -463,21 +463,22 @@ class TestRealWorldScenarios:
             }
         
         # Workspace management with ownership
-        @require(Permission("workspaces", "create"), ResourceOwnership("tenant"))
+        @require(Permission("workspaces", "create"), ResourceOwnership("tenant", "tenant_id"))
         async def create_workspace(
             name: str, 
+            tenant_id: str,
             current_user: User, 
             rbac_service: MockRBACService
         ):
             return {
                 "workspace_name": name,
                 "created_by": current_user.email,
-                "tenant_id": "tenant_123"
+                "tenant_id": tenant_id
             }
 
         # Execute SaaS scenario
         tenant_management = await manage_tenant("configure_billing", saas_user, rbac_service)
-        workspace_creation = await create_workspace("Development", saas_user, rbac_service)
+        workspace_creation = await create_workspace("Development", "tenant_123", saas_user, rbac_service)
         
         # Verify SaaS functionality
         assert tenant_management["tenant_action"] == "configure_billing"
@@ -542,7 +543,7 @@ class TestRealWorldScenarios:
         financial_user = User()
         financial_user.id = 4
         financial_user.email = "advisor@bank.com"
-        financial_user.role = "financial_advisor"
+        financial_user.role = "advisor"
         
         # Create financial specific roles
         FinancialRole = create_roles(["customer", "advisor", "manager", "compliance_officer"])

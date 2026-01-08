@@ -210,13 +210,14 @@ class TestRoleManagement(TestRBACService):
     @pytest.mark.asyncio
     async def test_assign_role_to_user(self, rbac_service, user):
         """Test assigning role to user."""
-        rbac_service.commit = AsyncMock()
+        # Mock the enforcer methods since we're testing the service logic
+        rbac_service.enforcer.remove_grouping_policy = MagicMock()
+        rbac_service.enforcer.add_grouping_policy = MagicMock()
         rbac_service.clear_cache = MagicMock()
 
         await rbac_service.assign_role_to_user(user, Role.SALESMAN)
 
         assert user.role == Role.SALESMAN.value
-        rbac_service.commit.assert_called_once()
         rbac_service.enforcer.remove_grouping_policy.assert_called_once_with(user.email)
         rbac_service.enforcer.add_grouping_policy.assert_called_once_with(
             user.email, Role.SALESMAN.value

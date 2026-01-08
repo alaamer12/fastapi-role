@@ -112,6 +112,9 @@ def create_roles(names: List[str]) -> Type[Enum]:
 
     Returns:
         Type[Enum]: A new Enum class with the specified roles.
+        
+    Raises:
+        ValueError: If names is empty, contains empty strings, invalid characters, or duplicates.
 
     Example:
         >>> Role = create_roles(["ADMIN", "USER"])
@@ -120,6 +123,22 @@ def create_roles(names: List[str]) -> Type[Enum]:
         >>> isinstance(Role.ADMIN | Role.USER, RoleComposition)
         True
     """
+    # Validate input
+    if not names:
+        raise ValueError("Role names cannot be empty")
+    
+    for name in names:
+        if not name or not name.strip():
+            raise ValueError(f"Invalid role name: '{name}' - role names cannot be empty")
+        
+        # Check for invalid characters (allow alphanumeric, underscore, hyphen)
+        if not name.replace('_', '').replace('-', '').isalnum():
+            raise ValueError(f"Invalid role name: '{name}' - contains invalid characters")
+    
+    # Check for duplicates
+    if len(names) != len(set(names)):
+        raise ValueError("Duplicate role names found")
+    
     # Create Enum dictionary
     # Values match the lowercase version of the name for consistency
     enum_dict = {name.upper(): name.lower() for name in names}

@@ -132,43 +132,39 @@ class TestRBACProperties:
         # Create permission
         permission = Permission(resource, action)
 
+        # Create mock service
+        mock_service = AsyncMock()
+        # Superadmin always has permission, others based on mock
+        if user_role == Role.SUPERADMIN.value:
+            mock_result = True
+        else:
+            # Use a deterministic result based on inputs
+            mock_result = hash(f"{user_role}:{resource}:{action}") % 2 == 0
+
+        mock_service.check_permission = AsyncMock(return_value=mock_result)
+
         # Test single decorator
         @require(permission)
-        async def single_decorator_function(user: User):
+        async def single_decorator_function(user: User, rbac_service):
             return "success"
 
         # Test multiple decorators with same permission (should be equivalent)
         @require(permission)
         @require(permission)
-        async def multiple_decorator_function(user: User):
+        async def multiple_decorator_function(user: User, rbac_service):
             return "success"
 
-        # Mock the permission check to return a consistent result
-        # Mock the permission check on the global service
-        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
-            # Setup AsyncMock for check_permission
-            mock_check = AsyncMock()
-            mock_service.check_permission = mock_check
-            # Superadmin always has permission, others based on mock
-            if user_role == Role.SUPERADMIN.value:
-                mock_result = True
-            else:
-                # Use a deterministic result based on inputs
-                mock_result = hash(f"{user_role}:{resource}:{action}") % 2 == 0
-
-            mock_check.return_value = mock_result
-
-            # Both functions should behave the same way
-            if mock_result or user_role == Role.SUPERADMIN.value:
-                result1 = await single_decorator_function(user)
-                result2 = await multiple_decorator_function(user)
-                assert result1 == result2 == "success"
-            else:
-                with pytest.raises(Exception) as exc1:
-                    await single_decorator_function(user)
-                with pytest.raises(Exception) as exc2:
-                    await multiple_decorator_function(user)
-                assert exc1.value.status_code == exc2.value.status_code == 403
+        # Both functions should behave the same way
+        if mock_result or user_role == Role.SUPERADMIN.value:
+            result1 = await single_decorator_function(user, mock_service)
+            result2 = await multiple_decorator_function(user, mock_service)
+            assert result1 == result2 == "success"
+        else:
+            with pytest.raises(Exception) as exc1:
+                await single_decorator_function(user, mock_service)
+            with pytest.raises(Exception) as exc2:
+                await multiple_decorator_function(user, mock_service)
+            assert exc1.value.status_code == exc2.value.status_code == 403
 
     @pytest.mark.asyncio
     @given(
@@ -196,6 +192,10 @@ class TestRBACProperties:
         for role in roles:
             assert role in privilege.roles
 
+        # Create mock service
+        mock_service = AsyncMock()
+        mock_service.check_permission = AsyncMock(return_value=True)  # Assume permission is granted
+
         # Test with users having different roles
         for test_role in Role:
             user = User()
@@ -203,30 +203,23 @@ class TestRBACProperties:
             user.email = "test@example.com"
             user.role = test_role.value
 
-            # Mock permission check
-            # Mock permission check on generic global service
-            with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
-                mock_check = AsyncMock()
-                mock_service.check_permission = mock_check
-                mock_check.return_value = True  # Assume permission is granted
+            # Create function with privilege
+            @require(privilege)
+            async def test_function(user: User, rbac_service):
+                return "success"
 
-                # Create function with privilege
-                @require(privilege)
-                async def test_function(user: User):
-                    return "success"
+            # Determine expected result
+            user_has_role = test_role.value == Role.SUPERADMIN.value or any(
+                test_role == role for role in roles
+            )
 
-                # Determine expected result
-                user_has_role = test_role.value == Role.SUPERADMIN.value or any(
-                    test_role == role for role in roles
-                )
-
-                if user_has_role:
-                    result = await test_function(user)
-                    assert result == "success"
-                else:
-                    with pytest.raises(Exception) as exc_info:
-                        await test_function(user)
-                    assert exc_info.value.status_code == 403
+            if user_has_role:
+                result = await test_function(user, mock_service)
+                assert result == "success"
+            else:
+                with pytest.raises(Exception) as exc_info:
+                    await test_function(user, mock_service)
+                assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     @given(
@@ -254,33 +247,30 @@ class TestRBACProperties:
         # Create resource ownership requirement
         ownership = ResourceOwnership(resource_type)
 
+        # Create mock service
+        mock_service = AsyncMock()
+        # Use deterministic result based on inputs
+        mock_result = hash(f"{resource_type}:{resource_id}") % 2 == 0
+        mock_service.check_resource_ownership = AsyncMock(return_value=mock_result)
+
         # Test with resource ID as keyword argument
         @require(ownership)
-        async def test_function_kwargs(user: User, **kwargs):
+        async def test_function_kwargs(user: User, rbac_service, **kwargs):
             return "success"
 
         # Test with resource ID as positional argument
         @require(ResourceOwnership(resource_type, "resource_id"))
-        async def test_function_args(resource_id: int, user: User):
+        async def test_function_args(resource_id: int, user: User, rbac_service):
             return "success"
 
-        # Mock ownership check
-        # Mock ownership check
-        with patch("fastapi_role.rbac_service.rbac_service") as mock_service:
-            mock_check = AsyncMock()
-            mock_service.check_resource_ownership = mock_check
-            # Use deterministic result based on inputs
-            mock_result = hash(f"{resource_type}:{resource_id}") % 2 == 0
-            mock_check.return_value = mock_result
-
-            # Both functions should behave the same way
-            if mock_result:
-                result1 = await test_function_kwargs(user, **{f"{resource_type}_id": resource_id})
-                result2 = await test_function_args(resource_id, user)
-                assert result1 == result2 == "success"
-            else:
-                with pytest.raises(Exception) as exc1:
-                    await test_function_kwargs(user, **{f"{resource_type}_id": resource_id})
-                with pytest.raises(Exception) as exc2:
-                    await test_function_args(resource_id, user)
-                assert exc1.value.status_code == exc2.value.status_code == 403
+        # Both functions should behave the same way
+        if mock_result:
+            result1 = await test_function_kwargs(user, mock_service, **{f"{resource_type}_id": resource_id})
+            result2 = await test_function_args(resource_id, user, mock_service)
+            assert result1 == result2 == "success"
+        else:
+            with pytest.raises(Exception) as exc1:
+                await test_function_kwargs(user, mock_service, **{f"{resource_type}_id": resource_id})
+            with pytest.raises(Exception) as exc2:
+                await test_function_args(resource_id, user, mock_service)
+            assert exc1.value.status_code == exc2.value.status_code == 403

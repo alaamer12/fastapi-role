@@ -70,7 +70,9 @@ class TestArbitraryResourceTypeValidation:
         
         class GenericUser:
             def __init__(self, email: str = "user@example.com"):
+                self.id = 1  # Add required id attribute
                 self.email = email
+                self.role = "user"  # Add required role attribute
                 self.id = uuid.uuid4()
         
         return GenericUser()
@@ -183,7 +185,7 @@ class TestArbitraryResourceTypeValidation:
         # Execute space workflow
         mission_result = await plan_mission("mars_exploration", current_user=generic_user, rbac_service=flexible_rbac_service)
         satellite_result = await deploy_satellite("SAT001", current_user=generic_user, rbac_service=flexible_rbac_service)
-        rover_result = await control_rover("ROVER001", "move_forward", generic_user, flexible_rbac_service)
+        rover_result = await control_rover("ROVER001", "move_forward", current_user=generic_user, rbac_service=flexible_rbac_service)
         
         assert "mission_mars_exploration_planned" in mission_result
         assert "satellite_SAT001_deployed" in satellite_result
@@ -206,22 +208,22 @@ class TestArbitraryResourceTypeValidation:
         for resource_type, resource_id in arbitrary_resources:
             flexible_rbac_service.grant_ownership(generic_user.email, resource_type, resource_id)
         
-        @require(ResourceOwnership("dragon_eggs"))
+        @require(ResourceOwnership("dragon_eggs", "egg_id"))
         async def hatch_dragon_egg(egg_id: str, *, current_user, rbac_service):
             return f"dragon_egg_{egg_id}_hatched_by_{current_user.email}"
         
-        @require(ResourceOwnership("time_machines"))
+        @require(ResourceOwnership("time_machines", "machine_id"))
         async def operate_time_machine(machine_id: str, destination: str, *, current_user, rbac_service):
             return f"time_machine_{machine_id}_to_{destination}_by_{current_user.email}"
         
-        @require(ResourceOwnership("magic_spells"))
+        @require(ResourceOwnership("magic_spells", "spell_id"))
         async def cast_spell(spell_id: str, target: str, *, current_user, rbac_service):
             return f"spell_{spell_id}_cast_on_{target}_by_{current_user.email}"
 
         # Execute fantasy workflow
         dragon_result = await hatch_dragon_egg("egg_001", current_user=generic_user, rbac_service=flexible_rbac_service)
-        time_result = await operate_time_machine("tm_alpha", "medieval_times", generic_user, flexible_rbac_service)
-        spell_result = await cast_spell("spell_fireball", "orc", generic_user, flexible_rbac_service)
+        time_result = await operate_time_machine("tm_alpha", "medieval_times", current_user=generic_user, rbac_service=flexible_rbac_service)
+        spell_result = await cast_spell("spell_fireball", "orc", current_user=generic_user, rbac_service=flexible_rbac_service)
         
         assert "dragon_egg_egg_001_hatched" in dragon_result
         assert "time_machine_tm_alpha_to_medieval_times" in time_result
@@ -263,7 +265,7 @@ class TestArbitraryResourceTypeValidation:
         # Execute hierarchical workflow
         universe_result = await create_universe("new_reality", current_user=generic_user, rbac_service=flexible_rbac_service)
         planet_result = await terraform_planet("new_earth", current_user=generic_user, rbac_service=flexible_rbac_service)
-        furniture_result = await arrange_furniture("room_001", "modern", generic_user, flexible_rbac_service)
+        furniture_result = await arrange_furniture("room_001", "modern", current_user=generic_user, rbac_service=flexible_rbac_service)
         
         assert "universe_new_reality_created" in universe_result
         assert "planet_new_earth_terraformed" in planet_result
@@ -316,7 +318,7 @@ class TestDynamicRoleSystemValidation:
         # Create gaming-specific roles
         GamingRole = create_roles([
             "player", "moderator", "game_master", "developer", "admin"
-        ], superadmin="admin")
+        ])
         
         role_aware_rbac_service.set_role_permissions({
             "player": ["games:play", "chat:send"],
@@ -330,6 +332,7 @@ class TestDynamicRoleSystemValidation:
         
         class GamingUser:
             def __init__(self, email: str, role: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
         
@@ -365,7 +368,7 @@ class TestDynamicRoleSystemValidation:
         # Create academic roles
         AcademicRole = create_roles([
             "undergraduate", "graduate", "postdoc", "professor", "dean"
-        ], superadmin="dean")
+        ])
         
         role_aware_rbac_service.set_role_permissions({
             "undergraduate": ["courses:enroll", "assignments:submit"],
@@ -379,6 +382,7 @@ class TestDynamicRoleSystemValidation:
         
         class AcademicUser:
             def __init__(self, email: str, role: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
         
@@ -407,7 +411,7 @@ class TestDynamicRoleSystemValidation:
         # Create military ranks
         MilitaryRank = create_roles([
             "private", "corporal", "sergeant", "lieutenant", "captain", "major", "colonel", "general"
-        ], superadmin="general")
+        ])
         
         role_aware_rbac_service.set_role_permissions({
             "private": ["equipment:use", "orders:follow"],
@@ -424,6 +428,7 @@ class TestDynamicRoleSystemValidation:
         
         class MilitaryPersonnel:
             def __init__(self, email: str, rank: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = rank
         
@@ -511,8 +516,10 @@ class TestProviderSystemValidation:
         
         class TestUser:
             def __init__(self, username: str, email: str):
+                self.id = 1  # Add required id attribute
                 self.username = username
                 self.email = email
+                self.role = "user"  # Add required role attribute
         
         # Test with username field
         username_provider = CustomSubjectProvider("username")
@@ -547,7 +554,9 @@ class TestProviderSystemValidation:
         
         class TestUser:
             def __init__(self, email: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
+                self.role = "user"  # Add required role attribute
         
         provider = DatabaseRoleProvider()
         
@@ -588,7 +597,9 @@ class TestProviderSystemValidation:
         
         class TestUser:
             def __init__(self, email: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
+                self.role = "user"  # Add required role attribute
         
         provider = GraphBasedOwnershipProvider()
         
@@ -811,7 +822,9 @@ class TestBusinessAssumptionValidation:
         
         class MinimalUser:
             def __init__(self, email: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
+                self.role = "user"  # Add required role attribute
                 self.id = uuid.uuid4()
         
         rbac_service = MinimalRBACService()

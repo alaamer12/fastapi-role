@@ -47,7 +47,7 @@ SUPERADMIN_ROLE = "admin"
 RESOURCE_TYPES = ["document", "project", "task"]
 
 # JWT Configuration
-SECRET_KEY = "your-secret-key-change-in-production"
+SECRET_KEY = "your-secret-key-change-for-deployment"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -111,7 +111,7 @@ class MessageResponse(BaseModel):
 
 
 # ============================================================================
-# In-Memory Data Store - No Database Dependencies
+# In-Memory Data Store - No External Dependencies
 # ============================================================================
 
 # Sample users - completely generic
