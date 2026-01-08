@@ -21,6 +21,8 @@ from fastapi_role.rbac import (
     _extract_resource_id,
     _extract_user_from_args,
     require,
+    set_rbac_service,
+    get_rbac_service,
 )
 from tests.conftest import TestRole as Role
 from tests.conftest import TestUser as User
@@ -509,8 +511,11 @@ class TestRequireDecorator:
         assert "Authentication required" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_multiple_require_decorators_or_logic(self, user):
+    async def test_multiple_require_decorators_or_logic(self, user, rbac_service):
         """Test multiple require decorators with OR logic."""
+        
+        # Set up the service for the decorator
+        set_rbac_service(rbac_service)
 
         # User has customer role, so this should succeed
         @require(Role.SALESMAN)  # User doesn't have this
@@ -523,9 +528,12 @@ class TestRequireDecorator:
         assert result == "success"
 
     @pytest.mark.asyncio
-    async def test_require_decorator_with_permission(self, user):
+    async def test_require_decorator_with_permission(self, user, rbac_service):
         """Test require decorator with permission requirement."""
         permission = Permission("configuration", "read")
+        
+        # Set up the service for the decorator
+        set_rbac_service(rbac_service)
 
         @require(permission)
         async def test_function(user: User):
@@ -538,9 +546,12 @@ class TestRequireDecorator:
             assert result == "success"
 
     @pytest.mark.asyncio
-    async def test_require_decorator_with_ownership(self, user):
+    async def test_require_decorator_with_ownership(self, user, rbac_service):
         """Test require decorator with ownership requirement."""
         ownership = ResourceOwnership("configuration")
+        
+        # Set up the service for the decorator
+        set_rbac_service(rbac_service)
 
         @require(ownership)
         async def test_function(configuration_id: int, user: User):
@@ -553,10 +564,13 @@ class TestRequireDecorator:
             assert result == "success"
 
     @pytest.mark.asyncio
-    async def test_require_decorator_with_privilege(self, user):
+    async def test_require_decorator_with_privilege(self, user, rbac_service):
         """Test require decorator with privilege requirement."""
         permission = Permission("configuration", "read")
         privilege = Privilege(Role.CUSTOMER, permission)
+        
+        # Set up the service for the decorator
+        set_rbac_service(rbac_service)
 
         @require(privilege)
         async def test_function(user: User):
@@ -568,9 +582,12 @@ class TestRequireDecorator:
 
     # noinspection PyCompatibility
     @pytest.mark.asyncio
-    async def test_require_decorator_and_logic(self, user):
+    async def test_require_decorator_and_logic(self, user, rbac_service):
         """Test require decorator with AND logic within single decorator."""
         permission = Permission("configuration", "read")
+        
+        # Set up the service for the decorator
+        set_rbac_service(rbac_service)
 
         @require(Role.CUSTOMER, permission)
         async def test_function(user: User):
@@ -584,9 +601,12 @@ class TestRequireDecorator:
             assert result == "success"
 
     @pytest.mark.asyncio
-    async def test_require_decorator_and_logic_failure(self, user):
+    async def test_require_decorator_and_logic_failure(self, user, rbac_service):
         """Test require decorator AND logic with one requirement failing."""
         permission = Permission("configuration", "read")
+        
+        # Set up the service for the decorator
+        set_rbac_service(rbac_service)
 
         @require(Role.CUSTOMER, permission)
         async def test_function(user: User):

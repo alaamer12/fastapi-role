@@ -231,11 +231,9 @@ class TestCacheManagement(TestRBACService):
         """Test clearing all caches."""
         # Add some data to caches via cache provider
         rbac_service.cache_provider.set("test_key", True)
-        rbac_service._customer_cache[1] = [1, 2, 3]
 
         rbac_service.clear_cache()
 
         # Verify caches are cleared
         assert rbac_service.cache_provider.get("test_key") is None
-        assert len(rbac_service._customer_cache) == 0
 

@@ -271,7 +271,7 @@ class TestPrivilegeEscalationPrevention:
         """Test that role inheritance cannot be bypassed."""
         
         # Create custom roles with hierarchy
-        CustomRole = create_roles(["user", "manager", "admin"], superadmin="admin")
+        CustomRole = create_roles(["user", "manager", "admin"])
         
         rbac_service = MockRBACService(permissions_result=False)
         

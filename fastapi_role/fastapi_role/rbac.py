@@ -116,7 +116,7 @@ class rbac_service_context:
 def _get_rbac_service_from_context(args: tuple, kwargs: dict) -> Any:
     """Extract RBAC service from function arguments or registry.
     
-    Supports multiple injection patterns in order of preference:
+    Supports multiple injection patterns by priority:
     1. Explicit service parameter (rbac_service, rbac)
     2. Service registry lookup (set via set_rbac_service())
     3. Service-like object in positional arguments

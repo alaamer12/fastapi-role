@@ -112,6 +112,7 @@ class TestNoDatabaseDependencies:
         # Create user without database model
         class SimpleUser:
             def __init__(self, email: str, role: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
 
@@ -175,7 +176,9 @@ class TestNoDatabaseDependencies:
         
         class ConfigUser:
             def __init__(self, email: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
+                self.role = "user"  # Add required role attribute
 
         user = ConfigUser("user@example.com")
         rbac_service = FileBasedRBACService(config)
@@ -215,6 +218,7 @@ class TestArbitraryResourceTypes:
         
         class GenericUser:
             def __init__(self):
+                self.id = 1  # Add required id attribute
                 self.email = "user@example.com"
                 self.role = "user"
         
@@ -390,7 +394,9 @@ class TestDifferentUserModels:
         
         class MinimalUser:
             def __init__(self, email: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
+                self.role = "user"  # Add required role attribute
         
         user = MinimalUser("minimal@example.com")
         
@@ -474,6 +480,7 @@ class TestDifferentUserModels:
             def __init__(self, email: str, user_id: int):
                 self.email = email
                 self.id = user_id
+                self.role = "user"  # Add required role attribute
         
         user = ProtocolUser("protocol@example.com", 456)
         
@@ -492,6 +499,7 @@ class TestDifferentUserModels:
             def __init__(self):
                 self.email = "custom@example.com"
                 self.id = 789
+                self.role = "user"  # Add required role attribute
                 self.tenant_id = "tenant_123"
                 self.organization = "ACME Corp"
                 self.security_clearance = "level_3"
@@ -593,6 +601,7 @@ class TestVariousRoleConfigurations:
         
         class FlatUser:
             def __init__(self, email: str, role: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
         
@@ -630,6 +639,7 @@ class TestVariousRoleConfigurations:
         
         class HierarchicalUser:
             def __init__(self, email: str, role: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
         
@@ -667,6 +677,7 @@ class TestVariousRoleConfigurations:
         
         class DomainUser:
             def __init__(self, email: str, role: str, domain: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
                 self.domain = domain
@@ -703,6 +714,7 @@ class TestVariousRoleConfigurations:
         
         class TenantUser:
             def __init__(self, email: str, role: str, tenant_id: str):
+                self.id = 1  # Add required id attribute
                 self.email = email
                 self.role = role
                 self.tenant_id = tenant_id
@@ -973,6 +985,7 @@ class TestNoHardcodedConcepts:
             def __init__(self):
                 self.email = "dynamic@example.com"
                 self.id = 1
+                self.role = "user"  # Add required role attribute
         
         user = DynamicUser()
         

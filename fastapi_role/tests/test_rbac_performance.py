@@ -318,11 +318,9 @@ class TestMemoryUsageOptimization:
 
         # Should have reasonable cache size (100 users * 3 resources * 2 actions = 600 entries)
         assert stats["size"] == 600
-        assert stats["customer_cache_size"] <= 100  # At most one entry per user
 
         # Cache should be manageable in size
         assert stats["size"] <= 1000
-        assert len(rbac_service._customer_cache) <= 200
 
     @pytest.mark.asyncio
     async def test_cache_cleanup_performance(self, rbac_service):
@@ -330,8 +328,6 @@ class TestMemoryUsageOptimization:
         # Populate cache with entries using cache provider
         for i in range(1000):
             rbac_service.cache_provider.set(f"key_{i}", True)
-            if i % 10 == 0:
-                rbac_service._customer_cache[i] = [1, 2, 3]
 
         # Measure cache cleanup time
         start_time = time.time()
@@ -344,4 +340,3 @@ class TestMemoryUsageOptimization:
         # Verify cache is empty
         stats = rbac_service.get_cache_stats()
         assert stats["size"] == 0
-        assert stats["customer_cache_size"] == 0

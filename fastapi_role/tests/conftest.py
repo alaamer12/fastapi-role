@@ -6,6 +6,7 @@ import pytest
 from fastapi_role.core.config import CasbinConfig
 from fastapi_role.core.roles import create_roles
 from fastapi_role.rbac_service import RBACService
+from fastapi_role.rbac import set_rbac_service
 
 # Create standard roles for testing (matches old hardcoded enum)
 TestRole = create_roles(["SUPERADMIN", "SALESMAN", "DATA_ENTRY", "PARTNER", "CUSTOMER"])
@@ -88,3 +89,13 @@ def rbac_service(casbin_config):
     """Create RBACService with test config."""
     service = RBACService(config=casbin_config)
     return service
+
+
+@pytest.fixture(autouse=True)
+def setup_global_rbac_service(rbac_service):
+    """Automatically set up global RBAC service for all tests."""
+    set_rbac_service(rbac_service)
+    yield
+    # Cleanup after test
+    from fastapi_role.rbac import _service_registry
+    _service_registry.clear()
