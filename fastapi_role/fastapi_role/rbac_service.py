@@ -256,7 +256,7 @@ class RBACService:
         
         Args:
             user: User to check access for
-            resource_type: Type of resource (e.g., "order", "project", "document")
+            resource_type: Type of resource (e.g., "document", "project", "task")
             
         Returns:
             List of resource IDs the user can access

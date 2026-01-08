@@ -189,7 +189,7 @@ def _is_rbac_service_like(obj: Any) -> bool:
 class Permission:
     """Permission definition for resources and actions.
 
-    Represents a specific permission like "configuration:read" or "quote:create".
+    Represents a specific permission like "document:read" or "project:create".
     Supports context for advanced permission scenarios.
     """
 
@@ -197,7 +197,7 @@ class Permission:
         """Initializes the permission.
 
         Args:
-            resource (str): Resource type (e.g., "configuration", "quote").
+            resource (str): Resource type (e.g., "document", "project").
             action (str): Action type (e.g., "read", "create", "update", "delete").
             context (Optional[dict[str, Any]]): Optional context for advanced permissions.
         """
@@ -225,7 +225,7 @@ class ResourceOwnership:
         """Initializes the resource ownership validator.
 
         Args:
-            resource_type (str): Type of resource (e.g., "configuration", "customer").
+            resource_type (str): Type of resource (e.g., "document", "project").
             id_param (Optional[str]): Parameter name containing resource ID.
                 Defaults to "{resource_type}_id".
         """

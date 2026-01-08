@@ -1,12 +1,19 @@
+# Pure General RBAC Policies Configuration
+# This file demonstrates policy-driven authorization with no business assumptions
+# Policies follow the format: subject -> object -> action -> effect
+
 policies:
+# Admin role - full access to all resources
 - action: '*'
   effect: allow
   object: '*'
   subject: admin
+# Manager role - read all, manage documents/projects/tasks
 - action: read
   effect: allow
   object: '*'
   subject: manager
+# Manager document permissions
 - action: create
   effect: allow
   object: document
@@ -15,6 +22,7 @@ policies:
   effect: allow
   object: document
   subject: manager
+# Manager project permissions
 - action: create
   effect: allow
   object: project
@@ -23,10 +31,12 @@ policies:
   effect: allow
   object: project
   subject: manager
+# Manager task permissions
 - action: create
   effect: allow
   object: task
   subject: manager
+# Editor role - manage documents and tasks
 - action: read
   effect: allow
   object: document
@@ -51,6 +61,8 @@ policies:
   effect: allow
   object: task
   subject: editor
+
+# Viewer role - read-only access to all resources
 - action: read
   effect: allow
   object: document

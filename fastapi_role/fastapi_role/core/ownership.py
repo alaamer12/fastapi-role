@@ -24,7 +24,7 @@ class OwnershipProvider(Protocol):
         
         Args:
             user: The user to check ownership for.
-            resource_type: Type of resource (e.g., "order", "project", "customer").
+            resource_type: Type of resource (e.g., "document", "project", "task").
             resource_id: Unique identifier of the resource.
             
         Returns:
